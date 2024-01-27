@@ -1,55 +1,75 @@
-from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QPushButton, QVBoxLayout, QScrollArea
-from PyQt5.uic import loadUi
+from PyQt5.QtCore import QThread, pyqtSignal, QObject
+from PyQt5.QtWidgets import QApplication, QVBoxLayout, QPushButton, QWidget
+import sys
 
+class WorkerThread(QThread):
+    finished = pyqtSignal()
 
-class MainWindow(QMainWindow):
-    def __init__(self):
-        super(MainWindow, self).__init__()
-        loadUi("gui/playlist customizing window.ui", self)
+    def run(self):
+        try:
+            # Simulate work or call a function that fetches data
+            self.fetch_data()
+        except Exception as e:
+            print(f"Exception in worker thread: {e}")
+        finally:
+            self.finished.emit()
 
-        frame = self.frame
-        print(frame)
+    def fetch_data(self):
+        # Simulate fetching data or perform actual work
+        for i in range(5):
+            print(f"Fetching data... {i}")
+            self.sleep(1)  # Simulate work (do not use time.sleep in a QThread)
 
-        from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QVBoxLayout
-        import sys
-
-
-class MainWindow2(QWidget):
+class WorkerController(QObject):
     def __init__(self):
         super().__init__()
 
-        # Load the UI file created by Qt Designer
-        # self.ui_template = loadUi("your_ui_file.ui")
+        self.thread = WorkerThread()
+        self.thread.finished.connect(self.handle_thread_finished)
 
-        # Create a scroll area
-        scroll_area = QScrollArea(self)
-        scroll_area.setWidgetResizable(True)
+    def start_thread(self):
+        self.thread.start()
 
-        # Create a widget to contain the template widgets
-        content_widget = QWidget(scroll_area)
-        scroll_area.setWidget(content_widget)
+    def stop_thread(self):
+        # Forcefully terminate the thread
+        self.thread.terminate()
 
-        # Create a layout for the content widget
-        content_layout = QVBoxLayout(content_widget)
+    def handle_thread_finished(self):
+        print("Thread finished.")
 
-        # Add multiple instances of the template widget to the content layout
-        for _ in range(1000):
-            template_instance = self.createTemplateInstance()
-            content_layout.addWidget(template_instance)
+class MainWindow(QWidget):
+    def __init__(self):
+        super().__init__()
 
-        # Set up the main layout
-        main_layout = QVBoxLayout(self)
-        main_layout.addWidget(scroll_area)
+        self.init_ui()
 
-    def createTemplateInstance(self):
-        # Create a new instance of the template widget
-        new_instance = QWidget()
-        loadUi("gui/template.ui", new_instance)  # Load the UI into the new instance
-        return new_instance
+    def init_ui(self):
+        self.setWindowTitle("Thread Termination Example")
+        self.setGeometry(100, 100, 400, 200)
 
+        layout = QVBoxLayout()
 
-if __name__ == "__main__":
-    app = QApplication([])
-    window = MainWindow2()
-    window.show()
-    app.exec()
+        start_button = QPushButton("Start Thread", self)
+        start_button.clicked.connect(self.start_thread)
+
+        stop_button = QPushButton("Stop Thread", self)
+        stop_button.clicked.connect(self.stop_thread)
+
+        layout.addWidget(start_button)
+        layout.addWidget(stop_button)
+
+        self.setLayout(layout)
+
+        self.worker_controller = WorkerController()
+
+    def start_thread(self):
+        self.worker_controller.start_thread()
+
+    def stop_thread(self):
+        self.worker_controller.stop_thread()
+
+if __name__ == '__main__':
+    app = QApplication(sys.argv)
+    main_window = MainWindow()
+    main_window.show()
+    sys.exit(app.exec_())

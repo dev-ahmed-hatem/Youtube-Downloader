@@ -6,17 +6,18 @@ sys.path.append("./lib/pytube")
 sys.path.append("./threads")
 
 # import additional libs
-from pytube import YouTube, Playlist
+from pytube import YouTube
 from pytube.exceptions import RegexMatchError
 from pytube.helpers import safe_filename
-from subtitle import Subtitle
 from filesize import naturalsize
 from streams_sorting import justify_streams
 from thread_handler import initiate_thread
 
 # import threading modules
-from video_handle import VideoHandle
-from subtitle_handle import SubtitleHandle
+from object_handle import VideoHandle, SubtitleHandle, PlaylistHandle
+
+# import different windows
+from windows.customize_playlist import CustomizingWindow
 
 # import necessary modules
 from threading import Thread
@@ -24,7 +25,7 @@ from os import path, makedirs
 
 # import gui modules
 from PyQt5.Qt import QObject, QThread, pyqtSignal
-from PyQt5.QtWidgets import QApplication, QMainWindow, QMessageBox, QLineEdit, QFileDialog
+from PyQt5.QtWidgets import QApplication, QMainWindow, QMessageBox, QLineEdit, QFileDialog, QLabel
 from PyQt5.uic import loadUi
 from lib.qt_material import apply_stylesheet
 
@@ -49,6 +50,14 @@ class MainWindow(QMainWindow):
     # specific for gui actions
     def reset_gui(self, playlist_tab=False):
         loadUi("./gui/main window.ui", self)
+
+        # resetting threads
+        if self.video_handle_thread:
+            self.video_handle_thread.terminate()
+        if self.playlist_handle_thread:
+            self.playlist_handle_thread.terminate()
+        if self.subtitle_handle_thread:
+            self.subtitle_handle_thread.terminate()
 
         # resetting video tab
         self.video_save_location.setEnabled(False)
@@ -90,7 +99,11 @@ class MainWindow(QMainWindow):
         # define key bindings for playlist tab
         self.playlist_get_b.clicked.connect(self.get_playlist)
         self.playlist_browse_b.clicked.connect(self.get_playlist_save_location)
+        self.playlist_videos_radio.clicked.connect(lambda: self.change_playlist_type("videos"))
+        self.playlist_audios_radio.clicked.connect(lambda: self.change_playlist_type("audios"))
+        self.playlist_quality.currentIndexChanged.connect(self.change_playlist_quality)
         self.playlist_reset_b.clicked.connect(lambda: self.reset_gui(True))
+        self.playlist_customize_b.clicked.connect(self.customize_playlist)
 
     # specific for video handling
     def get_video(self):
@@ -241,7 +254,7 @@ class MainWindow(QMainWindow):
         initiate_thread(self.playlist_handle_thread, self.playlist_handle, events=playlist_events)
         self.statusBar().showMessage("Getting playlist data .. please wait.")
 
-    def get_playlist_videos_streams(self):
+    def get_playlist_size(self):
         self.playlist_handle_thread = QThread()
         self.playlist_handle = PlaylistHandle("", self)
 
@@ -249,16 +262,19 @@ class MainWindow(QMainWindow):
             {"signal": self.playlist_handle_thread.started,
              "slots": [self.playlist_handle.calculate_size_data]},
             {"signal": self.playlist_handle.error, "slots": [self.receive_message_from_thread]},
-            {"signal": self.playlist_handle.display_playlist_size, "slots": [self.display_playlist_size]},
+            {"signal": self.playlist_handle.display_playlist_size, "slots": [self.change_playlist_quality]},
             {"signal": self.playlist_handle.finished, "slots": [self.playlist_handle_thread.terminate,
                                                                 self.playlist_handle_thread.deleteLater,
                                                                 self.playlist_handle.deleteLater]}]
         initiate_thread(self.playlist_handle_thread, self.playlist_handle, events=playlist_events)
 
     def display_playlist_data(self):
+        self.current_playlist["customizing_dialog"] = None
+        self.current_playlist["ui_changed"] = False
+        self.current_playlist["custom_download_data"] = {}
         self.approx_size_title.setText("Approx Size: ")
         self.approx_size.setText("calculating ..")
-        self.get_playlist_videos_streams()
+        self.get_playlist_size()
         self.statusBar().showMessage(self.current_playlist["playlist_title"])
         self.playlist_count.setText(str(self.current_playlist["playlist_count"]))
         self.define_playlist_filename()
@@ -275,6 +291,8 @@ class MainWindow(QMainWindow):
         self.playlist_quality.addItem("Low")
 
     def display_playlist_size(self, mul_factor: int):
+        if not self.current_playlist.get("size"):
+            return
         size = 0
         for duration in self.current_playlist["playlist_videos_durations"]:
             size += duration * mul_factor
@@ -289,6 +307,48 @@ class MainWindow(QMainWindow):
                                                              caption="Choose Location",
                                                              directory=self.current_playlist["playlist_location"])
         self.playlist_save_location.setText(playlist_location)
+
+    def change_playlist_type(self, streams_type: str):
+        if not self.current_playlist.get("size"):
+            return
+        self.playlist_quality.setCurrentIndex(0)
+        self.display_playlist_size(self.current_playlist["playlist_mul_factor"]
+                                   [f"normal {'progressive' if streams_type == 'videos' else 'audio'}"])
+
+    def change_playlist_quality(self):
+        try:
+            if not self.current_playlist.get("size"):
+                return
+            qualities = {0: "normal", 1: "low"}
+            compoBox = self.playlist_quality
+            mul_factor = f"{qualities[compoBox.currentIndex()]}" \
+                         f" {'progressive' if self.playlist_videos_radio.isChecked() else 'audio'}"
+            self.display_playlist_size(self.current_playlist["playlist_mul_factor"][mul_factor])
+        except Exception:
+            pass
+
+    def customize_playlist(self):
+        if self.current_playlist["customizing_dialog"]:
+            self.current_playlist["customizing_dialog"].exec()
+        else:
+            customize_dialog = CustomizingWindow(self.current_playlist["playlist"], self)
+            customize_dialog.playlist_custom_data.connect(self.receive_custom_download_data)
+            self.current_playlist["customizing_dialog"] = customize_dialog
+            customize_dialog.exec()
+
+        if self.current_playlist["custom_download_data"] and not self.current_playlist["ui_changed"]:
+            self.playlist_type_group.deleteLater()
+            self.playlist_quality.deleteLater()
+            self.approx_size.deleteLater()
+            self.approx_size_title.deleteLater()
+            label1 = QLabel("Open customizing window", self)
+            label2 = QLabel("Open customizing window", self)
+            self.grid_layout.addWidget(label1, 2, 1, 1, 2)
+            self.grid_layout.addWidget(label2, 3, 1, 1, 2)
+            self.current_playlist["ui_changed"] = True
+
+    def receive_custom_download_data(self, data):
+        self.current_playlist["custom_download_data"] = data
 
     # specific for user messaging
     def receive_message_from_thread(self, msg_type, txt, reset_gui=True, playlist_tab=False):
@@ -316,103 +376,6 @@ class MainWindow(QMainWindow):
             self.reset_gui(playlist_tab)
 
 
-class PlaylistHandle(QObject):
-    # define thread signals
-    display_playlist_data = pyqtSignal()
-    display_playlist_size = pyqtSignal(float)
-    finished = pyqtSignal()
-    error = pyqtSignal(str, str, bool, bool)
-
-    def __init__(self, playlist_url, parent: MainWindow):
-        super(PlaylistHandle, self).__init__()
-
-        self.parent_ = parent
-        self.playlist_url = playlist_url
-        self.success = False
-        self.pass_ = True
-
-    def get_playlist_data(self):
-        try:
-            playlist = Playlist(self.playlist_url)
-            title = playlist.title
-            count = len(list(playlist.videos))
-            self.parent_.current_playlist["playlist"] = playlist
-            self.parent_.current_playlist["playlist_title"] = title
-            self.parent_.current_playlist["playlist_count"] = count
-            self.success = True
-
-        except KeyError:
-            self.error.emit("critical", "Invalid URL!", True, True)
-        except URLError:
-            self.error.emit("critical", "Connection Error!", True, True)
-        except Exception:
-            self.error.emit("critical", "Unexpected Error!", True, True)
-
-        self.finished.emit()
-        if self.success:
-            self.display_playlist_data.emit()
-
-    def get_videos_streams(self):
-        streams = {}
-        videos = list(self.parent_.current_playlist["playlist"].videos)
-        for index in range(len(videos)):
-            if self.pass_:
-                tries = 0
-                while self.pass_:
-                    # try:
-                    print("trying")
-                    streams[index] = videos[index].streams
-                    print(streams)
-                    break
-                    """except Exception:
-                        print(f"try {tries} failed")
-                        tries += 1
-                        if tries == 3:
-                            streams[index] = "failed"
-                            print(f"{index} failed")
-                            break"""
-            else:
-                break
-
-        self.finished.emit()
-        if self.pass_:
-            self.videos_streams.emit()
-
-    def calculate_size_data(self):
-        try:
-            first_vid = self.parent_.current_playlist["playlist"].videos[0]
-            length = first_vid.length
-            streams = first_vid.streams
-            progressive = streams.filter(progressive=True)
-            audio = streams.filter(only_audio=True)
-            qualities = {"progressive": len(progressive),
-                         "audio": len(audio)
-                         }
-            mul_factor = {"normal progressive": progressive[-1].filesize / length,
-                          "low progressive": progressive[-2].filesize / length if qualities["progressive"] > 1 else 0,
-                          "normal audio": audio[-1].filesize / length,
-                          "low audio": audio[-2].filesize / length if qualities["audio"] > 1 else 0
-                          }
-            durations = [video.length for video in self.parent_.current_playlist["playlist"].videos]
-            self.parent_.current_playlist["playlist_mul_factor"] = mul_factor
-            self.parent_.current_playlist["playlist_videos_durations"] = durations
-            self.success = True
-
-        except KeyError:
-            self.error.emit("critical", "Invalid URL!", True, True)
-        except URLError:
-            self.error.emit("critical", "Connection Error!", True, True)
-        except Exception:
-            self.error.emit("critical", "Unexpected Error!", True, True)
-
-        self.finished.emit()
-        if self.success:
-            self.display_playlist_size.emit(mul_factor["normal progressive"])
-
-    def force_stop(self):
-        self.pass_ = False
-
-
 # define download locations if not exists
 videos_dir, audios_dir, playlists_dir = "", "", ""
 
@@ -437,8 +400,8 @@ def prepare_download_location():
 
 # https://www.youtube.com/watch?v=RBSGKlAvoiM&pp=ygUicHl0aG9uIGRhdGEgc3RydWN0dXJlcyBmdWxsIGNvdXJzZQ%3D%3D
 
-
 # https://www.youtube.com/playlist?list=PLMSBalys69yzbmRgoceGUidP8B7fir1dx
+
 if __name__ == "__main__":
     prepare_download_location()
 

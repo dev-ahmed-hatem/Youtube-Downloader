@@ -422,7 +422,7 @@ padding: 0px;</string>
        </attribute>
        <layout class="QHBoxLayout" name="horizontalLayout_3">
         <item>
-         <layout class="QGridLayout" name="gridLayout_2" rowstretch="20,20,20,20,30,70" columnstretch="50,100,100,100,20">
+         <layout class="QGridLayout" name="grid_layout" rowstretch="20,20,20,20,30,70" columnstretch="50,100,100,100,20">
           <item row="5" column="0">
            <spacer name="horizontalSpacer_5">
             <property name="orientation">
