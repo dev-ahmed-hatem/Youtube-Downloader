@@ -1,31 +1,30 @@
 # PyQt5 modules
-from PyQt5.Qt import QObject
-from PyQt5.QtCore import pyqtSignal
+from http.client import IncompleteRead
+from urllib.error import URLError
 
+from PyQt5.Qt import QThread, QWidget
+from PyQt5.QtCore import pyqtSignal
+from PyQt5.uic import loadUi
 # Youtube modules
 from pytube import YouTube, Playlist
-from urllib.error import URLError
-from http.client import IncompleteRead
-
 # Subtitle modules
 from subtitle import Subtitle
 
 
-class VideoHandle(QObject):
+class VideoHandleThread(QThread):
     # define thread signals
-    finished = pyqtSignal()
     display_video_data = pyqtSignal()
     error = pyqtSignal(str, str)
 
     def __init__(self, video: YouTube, parent):
-        super(VideoHandle, self).__init__()
+        super(VideoHandleThread, self).__init__()
 
         # define parent and selected video
         self.video = video
         self.parent_ = parent
         self.success = False
 
-    def get_video_streams(self):
+    def run(self):
         try:
             streams = self.video.streams
             self.parent_.current_video["streams"] = streams
@@ -35,27 +34,26 @@ class VideoHandle(QObject):
         except Exception:
             self.error.emit("critical", "Unexpected Error!")
 
-        self.finished.emit()
         if self.success:
             self.display_video_data.emit()
+        self.finished.emit()
 
 
-class SubtitleHandle(QObject):
+class SubtitleHandleThread(QThread):
     # define thread signals
-    finished = pyqtSignal()
     display_subtitles = pyqtSignal()
 
     # error = pyqtSignal(QMessageBox.Icon, str)
 
     def __init__(self, video_id: str, parent):
-        super(SubtitleHandle, self).__init__()
+        super(SubtitleHandleThread, self).__init__()
 
         # define parent and selected video
         self.parent_ = parent
         self.video_id = video_id
         self.success = False
 
-    def get_subtitles(self):
+    def run(self):
         try:
             subtitle = Subtitle(self.video_id)
             self.parent_.current_video["subtitles_display"] = subtitle.get_subtitles()
@@ -64,24 +62,31 @@ class SubtitleHandle(QObject):
         except Exception:
             self.parent_.current_video["subtitles_display"] = None
 
-        self.finished.emit()
         self.display_subtitles.emit()
+        self.finished.emit()
 
 
-class PlaylistHandle(QObject):
+class PlaylistHandleThread(QThread):
     # define thread signals
     display_playlist_data = pyqtSignal()
     display_playlist_size = pyqtSignal()
-    finished = pyqtSignal()
     error = pyqtSignal(str, str, bool, bool)
 
     def __init__(self, playlist_url, parent):
-        super(PlaylistHandle, self).__init__()
+        super(PlaylistHandleThread, self).__init__()
 
         self.parent_ = parent
         self.playlist_url = playlist_url
         self.success = False
-        self.pass_ = True
+        self.handle_size = False
+
+    def run(self) -> None:
+        self.success = False
+        if self.handle_size:
+            self.get_size_data()
+        else:
+            self.get_playlist_data()
+        self.finished.emit()
 
     def get_playlist_data(self):
         try:
@@ -100,11 +105,10 @@ class PlaylistHandle(QObject):
         except Exception:
             self.error.emit("critical", "Unexpected Error!", True, True)
 
-        self.finished.emit()
         if self.success:
             self.display_playlist_data.emit()
 
-    def calculate_size_data(self):
+    def get_size_data(self):
         try:
             first_vid = self.parent_.current_playlist["playlist"].videos[0]
             length = first_vid.length
@@ -132,8 +136,27 @@ class PlaylistHandle(QObject):
         except Exception:
             self.error.emit("critical", "Unexpected Error!\nCouldn't calculate size", False, True)
 
-        self.finished.emit()
         if self.success:
             self.display_playlist_size.emit()
         else:
             self.parent_.approx_size.setText("Unknown")
+
+
+class CustomizingHandleThread(QThread):
+    def __init__(self, playlist, parent):
+        super(CustomizingHandleThread, self).__init__()
+        self.parent_ = parent
+        self.playlist_object = playlist
+        self.videos_widgets = {}
+
+    def run(self) -> None:
+        for video in self.playlist_object.videos:
+            self.videos_widgets[video.title] = {"video": video,
+                                                "video_data": {
+                                                    "video_id": video.video_id,
+                                                    "title": video.title,
+                                                    "length": video.length,
+                                                    "thumbnail": video.thumbnail_url
+                                                }}
+        self.parent_.current_playlist["download_data"] = self.videos_widgets
+        self.finished.emit()

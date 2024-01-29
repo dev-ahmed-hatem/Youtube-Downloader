@@ -4,6 +4,7 @@ import sys
 sys.path.append("./lib")
 sys.path.append("./lib/pytube")
 sys.path.append("./threads")
+sys.path.append("./windows")
 
 # import additional libs
 from pytube import YouTube
@@ -14,10 +15,11 @@ from streams_sorting import justify_streams
 from thread_handler import initiate_thread
 
 # import threading modules
-from object_handle import VideoHandle, SubtitleHandle, PlaylistHandle
+from object_handle import VideoHandleThread, SubtitleHandleThread, PlaylistHandleThread, CustomizingHandleThread
 
 # import different windows
 from windows.customize_playlist import CustomizingWindow
+from windows.video_template import VideoTemplate
 
 # import necessary modules
 from threading import Thread
@@ -35,21 +37,22 @@ class MainWindow(QMainWindow):
         super(MainWindow, self).__init__()
         # define threads handlers attributes
         self.video_handle_thread = None
-        self.video_handle = None
         self.subtitle_handle_thread = None
-        self.subtitle_handle = None
         self.playlist_handle_thread = None
-        self.playlist_handle = None
+        self.customizing_handle_thread = None
 
         # define video / playlist attributes
         self.current_video = {}
         self.current_playlist = {}
 
+        # windows attributes
+        self.customize_window = None
+
         self.reset_gui()
 
     # specific for gui actions
     def reset_gui(self, playlist_tab=False):
-        loadUi("./gui/main window.ui", self)
+        loadUi("./gui/main window", self)
 
         # resetting threads
         if self.video_handle_thread:
@@ -81,7 +84,7 @@ class MainWindow(QMainWindow):
 
     def disable_gui(self):
         self.video_get_b.setEnabled(False)
-        self.video_reset_b.setEnabled(False)
+        # self.video_reset_b.setEnabled(False)
         self.video_url.setEnabled(False)
         self.playlist_get_b.setEnabled(False)
         self.playlist_reset_b.setEnabled(False)
@@ -114,30 +117,16 @@ class MainWindow(QMainWindow):
             video = YouTube(url)
 
             # initiate video handle thread
-            self.video_handle_thread = QThread()
-            self.video_handle = VideoHandle(video=video, parent=self)
-            video_events = [
-                {"signal": self.video_handle_thread.started,
-                 "slots": [self.video_handle.get_video_streams]},
-                {"signal": self.video_handle.error, "slots": [self.receive_message_from_thread]},
-                {"signal": self.video_handle.display_video_data, "slots": [self.display_video_data]},
-                {"signal": self.video_handle.finished, "slots": [self.video_handle_thread.terminate,
-                                                                 self.video_handle_thread.deleteLater,
-                                                                 self.video_handle.deleteLater]}]
-            initiate_thread(self.video_handle_thread, self.video_handle, events=video_events)
+            self.video_handle_thread = VideoHandleThread(video=video, parent=self)
+            self.video_handle_thread.error.connect(self.receive_message_from_thread)
+            self.video_handle_thread.display_video_data.connect(self.display_video_data)
+            self.video_handle_thread.start()
             self.statusBar().showMessage("Getting video data .. please wait.")
 
             # initiate subtitle handle thread
-            self.subtitle_handle_thread = QThread()
-            self.subtitle_handle = SubtitleHandle(video.video_id, self)
-            subtitle_events = [
-                {"signal": self.subtitle_handle_thread.started, "slots": [self.subtitle_handle.get_subtitles]},
-                {"signal": self.subtitle_handle.display_subtitles, "slots": [self.display_subtitles]},
-                {"signal": self.subtitle_handle.finished, "slots": [self.subtitle_handle_thread.terminate,
-                                                                    self.subtitle_handle_thread.deleteLater,
-                                                                    self.subtitle_handle.deleteLater]}]
-
-            initiate_thread(self.subtitle_handle_thread, self.subtitle_handle, events=subtitle_events)
+            self.subtitle_handle_thread = SubtitleHandleThread(video.video_id, self)
+            self.subtitle_handle_thread.display_subtitles.connect(self.display_subtitles)
+            self.subtitle_handle_thread.start()
 
         except RegexMatchError:
             self.show_message(QMessageBox.Critical, "Invalid URL!")
@@ -240,41 +229,26 @@ class MainWindow(QMainWindow):
         self.disable_gui()
 
         # initiate playlist handle thread
-        self.playlist_handle_thread = QThread()
-        self.playlist_handle = PlaylistHandle(url, self)
-
-        playlist_events = [
-            {"signal": self.playlist_handle_thread.started,
-             "slots": [self.playlist_handle.get_playlist_data]},
-            {"signal": self.playlist_handle.error, "slots": [self.receive_message_from_thread]},
-            {"signal": self.playlist_handle.display_playlist_data, "slots": [self.display_playlist_data]},
-            {"signal": self.playlist_handle.finished, "slots": [self.playlist_handle_thread.terminate,
-                                                                self.playlist_handle_thread.deleteLater,
-                                                                self.playlist_handle.deleteLater]}]
-        initiate_thread(self.playlist_handle_thread, self.playlist_handle, events=playlist_events)
+        self.playlist_handle_thread = PlaylistHandleThread(url, self)
+        self.playlist_handle_thread.handle_size = False
+        self.playlist_handle_thread.error.connect(self.receive_message_from_thread)
+        self.playlist_handle_thread.display_playlist_data.connect(self.display_playlist_data)
+        self.playlist_handle_thread.display_playlist_size.connect(self.change_playlist_quality)
+        self.playlist_handle_thread.start()
         self.statusBar().showMessage("Getting playlist data .. please wait.")
 
     def get_playlist_size(self):
-        self.playlist_handle_thread = QThread()
-        self.playlist_handle = PlaylistHandle("", self)
-
-        playlist_events = [
-            {"signal": self.playlist_handle_thread.started,
-             "slots": [self.playlist_handle.calculate_size_data]},
-            {"signal": self.playlist_handle.error, "slots": [self.receive_message_from_thread]},
-            {"signal": self.playlist_handle.display_playlist_size, "slots": [self.change_playlist_quality]},
-            {"signal": self.playlist_handle.finished, "slots": [self.playlist_handle_thread.terminate,
-                                                                self.playlist_handle_thread.deleteLater,
-                                                                self.playlist_handle.deleteLater]}]
-        initiate_thread(self.playlist_handle_thread, self.playlist_handle, events=playlist_events)
+        self.playlist_handle_thread.handle_size = True
+        self.playlist_handle_thread.start()
 
     def display_playlist_data(self):
-        self.current_playlist["customizing_dialog"] = None
         self.current_playlist["ui_changed"] = False
-        self.current_playlist["custom_download_data"] = {}
+        self.current_playlist["customized"] = False
+        self.current_playlist["download_data"] = {}
         self.approx_size_title.setText("Approx Size: ")
         self.approx_size.setText("calculating ..")
         self.get_playlist_size()
+        self.collect_playlist_videos_data()
         self.statusBar().showMessage(self.current_playlist["playlist_title"])
         self.playlist_count.setText(str(self.current_playlist["playlist_count"]))
         self.define_playlist_filename()
@@ -284,7 +258,6 @@ class MainWindow(QMainWindow):
         self.playlist_videos_radio.setChecked(True)
         self.playlist_quality.setEnabled(True)
         self.playlist_reset_b.setEnabled(True)
-        self.playlist_customize_b.setEnabled(True)
         self.playlist_download_b.setEnabled(True)
 
         self.playlist_quality.addItem("Normal")
@@ -327,16 +300,36 @@ class MainWindow(QMainWindow):
         except Exception:
             pass
 
-    def customize_playlist(self):
-        if self.current_playlist["customizing_dialog"]:
-            self.current_playlist["customizing_dialog"].exec()
-        else:
-            customize_dialog = CustomizingWindow(self.current_playlist["playlist"], self)
-            customize_dialog.playlist_custom_data.connect(self.receive_custom_download_data)
-            self.current_playlist["customizing_dialog"] = customize_dialog
-            customize_dialog.exec()
+    def collect_playlist_videos_data(self):
+        self.customizing_handle_thread = CustomizingHandleThread(self.current_playlist["playlist"], self)
+        self.customizing_handle_thread.finished.connect(self.prepare_video_templates)
+        self.customizing_handle_thread.finished.connect(lambda: self.playlist_customize_b.setEnabled(True))
+        self.customizing_handle_thread.start()
 
-        if self.current_playlist["custom_download_data"] and not self.current_playlist["ui_changed"]:
+    def prepare_video_templates(self):
+        for video in self.current_playlist["download_data"]:
+            self.current_playlist["download_data"][video]["template"] = VideoTemplate(
+                self.current_playlist["download_data"][video]["video_data"]
+            )
+        self.customize_window = CustomizingWindow(
+            self.current_playlist["playlist_title"],
+            self.current_playlist["download_data"],
+        )
+        self.customize_window.playlist_custom_data.connect(self.receive_custom_download_data)
+
+    def customize_playlist(self):
+        if self.current_playlist["customized"]:
+            for video in self.current_playlist["download_data"]:
+                self.customize_window.load_saved_changes(
+                    template=self.current_playlist["download_data"][video]["template"],
+                    customized_data=self.current_playlist["download_data"][video]["customized_data"]
+                )
+        else:
+            self.customize_window.set_defaults()
+        self.customize_window.check_selection()
+        self.customize_window.exec()
+
+        if self.current_playlist["customized"] and not self.current_playlist["ui_changed"]:
             self.playlist_type_group.deleteLater()
             self.playlist_quality.deleteLater()
             self.approx_size.deleteLater()
@@ -348,7 +341,8 @@ class MainWindow(QMainWindow):
             self.current_playlist["ui_changed"] = True
 
     def receive_custom_download_data(self, data):
-        self.current_playlist["custom_download_data"] = data
+        self.current_playlist["download_data"] = data
+        self.current_playlist["customized"] = True
 
     # specific for user messaging
     def receive_message_from_thread(self, msg_type, txt, reset_gui=True, playlist_tab=False):

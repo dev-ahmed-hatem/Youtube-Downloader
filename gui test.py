@@ -6,13 +6,13 @@ class WorkerThread(QThread):
     finished = pyqtSignal()
 
     def run(self):
-        try:
+        # try:
             # Simulate work or call a function that fetches data
-            self.fetch_data()
-        except Exception as e:
+        self.fetch_data()
+        """except Exception as e:
             print(f"Exception in worker thread: {e}")
         finally:
-            self.finished.emit()
+            self.finished.emit()"""
 
     def fetch_data(self):
         # Simulate fetching data or perform actual work
