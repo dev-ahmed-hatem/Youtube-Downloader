@@ -168,6 +168,7 @@ class CustomizingHandleThread(QThread):
 class VideoDownloadHandleThread(QThread):
     on_download_start = pyqtSignal()
     on_download_finish = pyqtSignal()
+    on_error = pyqtSignal()
     download_stat = pyqtSignal(dict)
 
     def __init__(self, stream: Stream, file_path: str, filesize: int):
@@ -183,30 +184,30 @@ class VideoDownloadHandleThread(QThread):
         )
 
         self.on_download_start.connect(self.analyzer.start)
-        self.analyzer.finished.connect(self.terminate)
+        self.analyzer.finished.connect(self.stop)
         self.analyzer.finished.connect(self.deleteLater)
-        # print("pass")
 
     def run(self) -> None:
-        # from time import sleep
-        # for i in range(10):
-        #     print(i)
-        #     sleep(1)
-        # print("ahmed")
-        # self.a = 10
-        # while self.a < 30:
-        #     self.a += 1
-        self.stream.download(
-            output_path=self.output_path,
-            filename=self.filename,
-            start_signal=self.on_download_start,
-            stop_signal=self.on_download_finish
-        )
-        # self.finished.emit()
-        # self.quit()
+        self.stream.download_state = True
+        try:
+            self.stream.download(
+                output_path=self.output_path,
+                filename=self.filename,
+                start_signal=self.on_download_start,
+                stop_signal=self.on_download_finish
+            )
+            self.finished.emit()
+        except Exception:
+            self.analyzer.terminate()
+            self.on_error.emit()
+
+    def stop(self):
+        self.stream.download_state = False
 
 
 class DownloadAnalyzerHandle(QThread):
+    completed = pyqtSignal()
+
     def __init__(self, file: str, length: int, callback=None):
         super(DownloadAnalyzerHandle, self).__init__()
         self.filename = file
@@ -218,7 +219,7 @@ class DownloadAnalyzerHandle(QThread):
         self.finished.connect(self.deleteLater)
 
     def run(self) -> None:
-        delay = 0.5
+        delay = 0.2
         while self.on_progress:
             currentSize = getsize(self.filename)
             rate = (currentSize - self.lastSize) / delay
@@ -237,8 +238,10 @@ class DownloadAnalyzerHandle(QThread):
             if self.callback:
                 self.callback(data)
             sleep(delay)
-            if progress == 100:
+            if not progress < 100:
+                self.completed.emit()
                 break
+        self.finished.emit()
 
     def stop(self):
-        self.terminate()
+        self.on_progress = False

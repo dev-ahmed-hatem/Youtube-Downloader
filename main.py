@@ -153,14 +153,19 @@ class MainWindow(QMainWindow):
         stream_type = "video" if self.video_radio.isChecked() else "audio"
         stream_filename = self.current_video["resolved_streams"][current][
             f"{stream_type}_stream_object"].default_filename
-        self.video_save_location.setText(path.join(videos_dir, stream_filename))
+        if stream_type == "video":
+            self.current_video["stream_file_location"] = path.join(videos_dir, stream_filename)
+            self.video_save_location.setText(self.current_video["stream_file_location"])
+        else:
+            self.current_video["stream_file_location"] = path.join(audios_dir, stream_filename)
+            self.video_save_location.setText(self.current_video["stream_file_location"])
 
     def get_video_save_location(self):
+        current_location = self.video_save_location.text()
         file_location, _ = QFileDialog.getSaveFileName(parent=self,
                                                        caption="Choose Location",
-                                                       directory=self.current_video["video_filename"]
-                                                       if self.video_radio.isChecked()
-                                                       else self.current_video["audio_filename"]
+                                                       directory=current_location if current_location else
+                                                       self.current_video["stream_file_location"]
                                                        )
         self.video_save_location.setText(file_location)
 
@@ -170,7 +175,7 @@ class MainWindow(QMainWindow):
         if streams_type == "video":
             for stream in self.current_video["streams"].filter(progressive=True):
                 items[counter] = {
-                    "type": "progressive",
+                    "type": "video",
                     "display": f"{stream.mime_type} (merged)  {stream.resolution}  {naturalsize(stream.filesize)}",
                     "video_stream_object": stream
                 }
@@ -232,7 +237,7 @@ class MainWindow(QMainWindow):
         download_data["length"] = standard_time(current_video["video"].length)
         current_video_selected_stream = current_video["resolved_streams"][quality_index]
         stream_type = current_video_selected_stream["type"]
-        if stream_type == "progressive":
+        if stream_type == "video":
             video_stream_object = current_video_selected_stream["video_stream_object"]
             audio_stream_object = None
             download_data["quality"] = f"{video_stream_object.resolution} (progressive)"
@@ -259,10 +264,10 @@ class MainWindow(QMainWindow):
         download_data["audio_stream_object"] = audio_stream_object
 
         # instantiate downloading window
-        self.video_download_window = VideoDownloadWindow(download_data)
-        # self.hide()
+        self.video_download_window = VideoDownloadWindow(self, download_data)
+        self.hide()
         self.video_download_window.show()
-        print(download_data)
+        self.video_download_window.manage_tasks()
 
     # specific for playlist handling
     def get_playlist(self):
