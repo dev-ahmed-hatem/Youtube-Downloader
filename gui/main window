@@ -26,7 +26,7 @@
    <string>MainWindow</string>
   </property>
   <property name="styleSheet">
-   <string notr="true">QLabel {
+   <string notr="true">QLabel, QCheckBox {
 font-size: 17px;
 }</string>
   </property>
@@ -817,6 +817,13 @@ padding: 0px;</string>
             </property>
             <property name="alignment">
              <set>Qt::AlignCenter</set>
+            </property>
+           </widget>
+          </item>
+          <item row="4" column="3">
+           <widget class="QCheckBox" name="checkBox">
+            <property name="text">
+             <string>Numbered Prefixes</string>
             </property>
            </widget>
           </item>

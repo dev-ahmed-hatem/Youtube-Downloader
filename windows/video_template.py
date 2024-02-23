@@ -1,12 +1,11 @@
 from PyQt5.QtWidgets import QWidget, QComboBox
-from PyQt5.QtGui import QImage, QPixmap
 from PyQt5.uic import loadUi
+from lib.load_piximage import load_piximage_from_url
 
 # Other modules
 from threading import Thread
-from lib.download_analyzer import DownloadAnalyzer
 from subtitle import Subtitle
-from requests import get
+from time_format import standard_time
 
 
 class VideoTemplate(QWidget):
@@ -19,7 +18,7 @@ class VideoTemplate(QWidget):
 
     def add_data(self):
         self.title.setText(self.video["title"])
-        self.length.setText(DownloadAnalyzer.standard_time(self.video["length"]))
+        self.length.setText(standard_time(self.video["length"]))
         self.get_subtitles.clicked.connect(self.display_subtitles)
 
     def generate_subtitles(self):
@@ -45,16 +44,7 @@ class VideoTemplate(QWidget):
         piximage = load_piximage_from_url(self.video["thumbnail"])
         img_label = self.img
         if piximage:
-            img_label.setPixmap(piximage)
+            img_label.setPixmap(piximage.scaledToWidth(130))
         else:
             img_label.setStyleSheet(img_label.styleSheet() + "color: #f32013;")
             img_label.setText("Failed!")
-
-
-def load_piximage_from_url(url):
-    # try:
-        image = QImage()
-        image.loadFromData(get(url).content)
-        return QPixmap(image).scaledToWidth(130)
-    # except Exception:
-    #     return None

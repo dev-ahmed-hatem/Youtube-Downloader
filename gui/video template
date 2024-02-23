@@ -112,7 +112,7 @@ padding: 0px;</string>
       <string notr="true">border: 1px solid #000;</string>
      </property>
      <property name="text">
-      <string>Loading ..</string>
+      <string>loading ..</string>
      </property>
      <property name="alignment">
       <set>Qt::AlignCenter</set>

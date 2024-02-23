@@ -6,8 +6,14 @@ sys.path.append("./lib/pytube")
 from lib.pytube import Playlist, YouTube
 from lib.filesize import naturalsize
 
-playlist = {}
-print(not playlist.get("durations"))
+videoStreams = YouTube("https://www.youtube.com/watch?v=F4Zu5ZZAG7I").streams
+for stream in videoStreams:
+    print(stream.get_file_path())
+exit()
+print(videoStreams[2].download())
+# print(videoStreams[1].get_file_path())
+
+
 exit()
 # https://www.youtube.com/playlist?list=PLH2l6uzC4UEW0s7-KewFLBC1D0l6XRfye 2.2 GB
 # https://www.youtube.com/playlist?list=PLMSBalys69yzbmRgoceGUidP8B7fir1dx 1.3 GB

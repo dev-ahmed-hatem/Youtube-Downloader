@@ -50,7 +50,7 @@ font-size: 17px;
     <item>
      <layout class="QGridLayout" name="gridLayout" rowstretch="70,3,7,3,12" columnstretch="10,50,40,0">
       <item row="2" column="1" colspan="3">
-       <widget class="QProgressBar" name="progressBar">
+       <widget class="QProgressBar" name="progress">
         <property name="sizePolicy">
          <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
           <horstretch>0</horstretch>
@@ -105,16 +105,16 @@ font-size: 17px;
              </widget>
             </item>
             <item row="3" column="1">
-             <widget class="QLabel" name="label_9">
+             <widget class="QLabel" name="length">
               <property name="text">
-               <string>text</string>
+               <string/>
               </property>
              </widget>
             </item>
             <item row="4" column="1">
-             <widget class="QLabel" name="label_10">
+             <widget class="QLabel" name="quality">
               <property name="text">
-               <string>text</string>
+               <string/>
               </property>
              </widget>
             </item>
@@ -126,16 +126,16 @@ font-size: 17px;
              </widget>
             </item>
             <item row="2" column="1">
-             <widget class="QLabel" name="label_7">
+             <widget class="QLabel" name="author">
               <property name="text">
-               <string>text</string>
+               <string/>
               </property>
              </widget>
             </item>
             <item row="1" column="1">
-             <widget class="QLabel" name="label_4">
+             <widget class="QLabel" name="title">
               <property name="text">
-               <string>text</string>
+               <string/>
               </property>
              </widget>
             </item>
@@ -155,15 +155,21 @@ font-size: 17px;
                </spacer>
               </item>
               <item>
-               <widget class="QLabel" name="label_2">
+               <widget class="QLabel" name="img_1">
                 <property name="sizePolicy">
                  <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
                   <horstretch>0</horstretch>
                   <verstretch>0</verstretch>
                  </sizepolicy>
                 </property>
+                <property name="minimumSize">
+                 <size>
+                  <width>214</width>
+                  <height>0</height>
+                 </size>
+                </property>
                 <property name="text">
-                 <string>thuumbnail</string>
+                 <string>loading ..</string>
                 </property>
                 <property name="alignment">
                  <set>Qt::AlignCenter</set>
@@ -200,9 +206,9 @@ font-size: 17px;
              </widget>
             </item>
             <item row="5" column="1">
-             <widget class="QLabel" name="label_12">
+             <widget class="QLabel" name="size">
               <property name="text">
-               <string>text</string>
+               <string/>
               </property>
              </widget>
             </item>
@@ -232,16 +238,25 @@ font-size: 17px;
              </widget>
             </item>
             <item row="3" column="1">
-             <widget class="QLabel" name="label_15">
+             <widget class="QLabel" name="rate">
               <property name="text">
-               <string>text</string>
+               <string>calculating ..</string>
+              </property>
+              <property name="margin">
+               <number>0</number>
+              </property>
+              <property name="indent">
+               <number>10</number>
               </property>
              </widget>
             </item>
             <item row="4" column="1">
-             <widget class="QLabel" name="label_16">
+             <widget class="QLabel" name="downloaded">
               <property name="text">
-               <string>text</string>
+               <string>calculating ..</string>
+              </property>
+              <property name="indent">
+               <number>10</number>
               </property>
              </widget>
             </item>
@@ -253,16 +268,22 @@ font-size: 17px;
              </widget>
             </item>
             <item row="2" column="1">
-             <widget class="QLabel" name="label_18">
+             <widget class="QLabel" name="location">
               <property name="text">
-               <string>text</string>
+               <string/>
+              </property>
+              <property name="indent">
+               <number>10</number>
               </property>
              </widget>
             </item>
             <item row="1" column="1">
-             <widget class="QLabel" name="label_19">
+             <widget class="QLabel" name="url">
               <property name="text">
-               <string>text</string>
+               <string/>
+              </property>
+              <property name="indent">
+               <number>10</number>
               </property>
              </widget>
             </item>
@@ -282,15 +303,21 @@ font-size: 17px;
                </spacer>
               </item>
               <item>
-               <widget class="QLabel" name="label_20">
+               <widget class="QLabel" name="img_2">
                 <property name="sizePolicy">
                  <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
                   <horstretch>0</horstretch>
                   <verstretch>0</verstretch>
                  </sizepolicy>
                 </property>
+                <property name="minimumSize">
+                 <size>
+                  <width>214</width>
+                  <height>0</height>
+                 </size>
+                </property>
                 <property name="text">
-                 <string>thuumbnail</string>
+                 <string>loading ..</string>
                 </property>
                 <property name="alignment">
                  <set>Qt::AlignCenter</set>
@@ -327,9 +354,12 @@ font-size: 17px;
              </widget>
             </item>
             <item row="5" column="1">
-             <widget class="QLabel" name="label_23">
+             <widget class="QLabel" name="estimated">
               <property name="text">
-               <string>text</string>
+               <string>calculating ..</string>
+              </property>
+              <property name="indent">
+               <number>10</number>
               </property>
              </widget>
             </item>
@@ -355,7 +385,7 @@ font-size: 17px;
          </spacer>
         </item>
         <item>
-         <widget class="QPushButton" name="pushButton">
+         <widget class="QPushButton" name="pause_resume_btn">
           <property name="sizePolicy">
            <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
             <horstretch>0</horstretch>
@@ -387,7 +417,7 @@ font-size: 17px;
          </spacer>
         </item>
         <item>
-         <widget class="QPushButton" name="pushButton_2">
+         <widget class="QPushButton" name="cancel_btn">
           <property name="sizePolicy">
            <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
             <horstretch>0</horstretch>
@@ -421,7 +451,7 @@ font-size: 17px;
        </layout>
       </item>
       <item row="2" column="0">
-       <widget class="QLabel" name="label">
+       <widget class="QLabel" name="progress_label">
         <property name="sizePolicy">
          <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
           <horstretch>0</horstretch>

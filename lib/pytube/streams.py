@@ -28,7 +28,7 @@ class Stream:
     """Container for stream manifest data."""
 
     def __init__(
-        self, stream: Dict, monostate: Monostate
+            self, stream: Dict, monostate: Monostate
     ):
         """Construct a :class:`Stream <Stream>`.
 
@@ -64,15 +64,17 @@ class Stream:
 
         # filesize in bytes
         self._filesize: Optional[int] = int(stream.get('contentLength', 0))
-        
+
         # filesize in kilobytes
         self._filesize_kb: Optional[float] = float(ceil(float(stream.get('contentLength', 0)) / 1024 * 1000) / 1000)
-        
+
         # filesize in megabytes
-        self._filesize_mb: Optional[float] = float(ceil(float(stream.get('contentLength', 0)) / 1024 / 1024 * 1000) / 1000)
-        
+        self._filesize_mb: Optional[float] = float(
+            ceil(float(stream.get('contentLength', 0)) / 1024 / 1024 * 1000) / 1000)
+
         # filesize in gigabytes(fingers crossed we don't need terabytes going forward though)
-        self._filesize_gb: Optional[float] = float(ceil(float(stream.get('contentLength', 0)) / 1024 / 1024 / 1024 * 1000) / 1000)
+        self._filesize_gb: Optional[float] = float(
+            ceil(float(stream.get('contentLength', 0)) / 1024 / 1024 / 1024 * 1000) / 1000)
 
         # Additional information about the stream format, such as resolution,
         # frame rate, and whether the stream is live (HLS) or 3D.
@@ -167,7 +169,7 @@ class Stream:
                     raise
                 self._filesize = request.seq_filesize(self.url)
         return self._filesize
-    
+
     @property
     def filesize_kb(self) -> float:
         """File size of the media stream in kilobytes.
@@ -178,13 +180,13 @@ class Stream:
         """
         if self._filesize_kb == 0:
             try:
-                self._filesize_kb = float(ceil(request.filesize(self.url)/1024 * 1000) / 1000)
+                self._filesize_kb = float(ceil(request.filesize(self.url) / 1024 * 1000) / 1000)
             except HTTPError as e:
                 if e.code != 404:
                     raise
-                self._filesize_kb = float(ceil(request.seq_filesize(self.url)/1024 * 1000) / 1000)
+                self._filesize_kb = float(ceil(request.seq_filesize(self.url) / 1024 * 1000) / 1000)
         return self._filesize_kb
-    
+
     @property
     def filesize_mb(self) -> float:
         """File size of the media stream in megabytes.
@@ -195,11 +197,11 @@ class Stream:
         """
         if self._filesize_mb == 0:
             try:
-                self._filesize_mb = float(ceil(request.filesize(self.url)/1024/1024 * 1000) / 1000)
+                self._filesize_mb = float(ceil(request.filesize(self.url) / 1024 / 1024 * 1000) / 1000)
             except HTTPError as e:
                 if e.code != 404:
                     raise
-                self._filesize_mb = float(ceil(request.seq_filesize(self.url)/1024/1024 * 1000) / 1000)
+                self._filesize_mb = float(ceil(request.seq_filesize(self.url) / 1024 / 1024 * 1000) / 1000)
         return self._filesize_mb
 
     @property
@@ -212,13 +214,13 @@ class Stream:
         """
         if self._filesize_gb == 0:
             try:
-                self._filesize_gb = float(ceil(request.filesize(self.url)/1024/1024/1024 * 1000) / 1000)
+                self._filesize_gb = float(ceil(request.filesize(self.url) / 1024 / 1024 / 1024 * 1000) / 1000)
             except HTTPError as e:
                 if e.code != 404:
                     raise
-                self._filesize_gb = float(ceil(request.seq_filesize(self.url)/1024/1024/1024 * 1000) / 1000)
+                self._filesize_gb = float(ceil(request.seq_filesize(self.url) / 1024 / 1024 / 1024 * 1000) / 1000)
         return self._filesize_gb
-    
+
     @property
     def title(self) -> str:
         """Get title of video
@@ -260,7 +262,8 @@ class Stream:
             An os file system compatible filename.
         """
         filename = safe_filename(self.title)
-        return f"{filename}.{self.subtype}"
+        return f"{filename} [{self.resolution if self.includes_video_track else self.abr}]" \
+               f"{'(progressive)' if self.is_progressive else ''}.{self.subtype}"
 
     @property
     def accept_ranges(self) -> int:
@@ -279,13 +282,15 @@ class Stream:
         return self._accept_ranges
 
     def download(
-        self,
-        output_path: Optional[str] = None,
-        filename: Optional[str] = None,
-        filename_prefix: Optional[str] = None,
-        skip_existing: bool = True,
-        timeout: Optional[int] = None,
-        max_retries: Optional[int] = 0
+            self,
+            output_path: Optional[str] = None,
+            filename: Optional[str] = None,
+            filename_prefix: Optional[str] = None,
+            skip_existing: bool = True,
+            timeout: Optional[int] = None,
+            start_signal = None,
+            stop_signal = None,
+            max_retries: Optional[int] = 2
     ) -> str:
         """Write the media stream to disk.
 
@@ -326,6 +331,8 @@ class Stream:
 
         if skip_existing and self.exists_at_path(file_path):
             print(f'file {file_path} already exists, skipping')
+            if start_signal:
+                start_signal.emit()
             self.on_complete(file_path)
             return file_path
 
@@ -334,11 +341,13 @@ class Stream:
             print(f"file {file_path} exists incomplete: {self.start_pos}")
 
         with open(file_path, "ab") as fh:
+            if start_signal:
+                start_signal.emit()
             try:
                 for chunk in request.stream(self,
-                               timeout=timeout,
-                               max_retries=max_retries,
-                                ):
+                                            timeout=timeout,
+                                            max_retries=max_retries,
+                                            ):
                     # write data into file
                     fh.write(chunk)
 
@@ -347,20 +356,22 @@ class Stream:
                     raise
                 # Some adaptive streams need to be requested with sequence numbers
                 for chunk in request.seq_stream(
-                    self,
-                    timeout=timeout,
-                    max_retries=max_retries
+                        self,
+                        timeout=timeout,
+                        max_retries=max_retries
                 ):
                     # write data into file
                     fh.write(chunk)
+        if stop_signal:
+            stop_signal.emit()
         self.on_complete(file_path)
         return file_path
 
     def get_file_path(
-        self,
-        filename: Optional[str] = None,
-        output_path: Optional[str] = None,
-        filename_prefix: Optional[str] = None,
+            self,
+            filename: Optional[str] = None,
+            output_path: Optional[str] = None,
+            filename_prefix: Optional[str] = None,
     ) -> str:
         if not filename:
             filename = self.default_filename
@@ -370,14 +381,14 @@ class Stream:
 
     def exists_at_path(self, file_path: str) -> bool:
         return (
-            os.path.isfile(file_path)
-            and os.path.getsize(file_path) == self.filesize
+                os.path.isfile(file_path)
+                and os.path.getsize(file_path) == self.filesize
         )
 
     def exists_incomplete(self, file_path: str) -> bool:
         return (
-            os.path.isfile(file_path)
-            and os.path.getsize(file_path) < self.filesize
+                os.path.isfile(file_path)
+                and os.path.getsize(file_path) < self.filesize
         )
 
     def stream_to_buffer(self, buffer: BinaryIO) -> None:
@@ -398,7 +409,7 @@ class Stream:
         self.on_complete(None)
 
     def on_progress(
-        self, chunk: bytes, file_handler: BinaryIO, bytes_remaining: int
+            self, chunk: bytes, file_handler: BinaryIO, bytes_remaining: int
     ):
         """On progress callback function.
 
@@ -452,7 +463,7 @@ class Stream:
             parts.extend(['res="{s.resolution}"', 'fps="{s.fps}fps"'])
             if not self.is_adaptive:
                 parts.extend(
-                    ['vcodec="{s.video_codec}"', 'acodec="{s.audio_codec}"',]
+                    ['vcodec="{s.video_codec}"', 'acodec="{s.audio_codec}"', ]
                 )
             else:
                 parts.extend(['vcodec="{s.video_codec}"'])

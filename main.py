@@ -1,10 +1,5 @@
-# add additional libs to path
-import sys
-
-sys.path.append("./lib")
-sys.path.append("./lib/pytube")
-sys.path.append("./threads")
-sys.path.append("./windows")
+# add project folders to path
+import pathmod
 
 # import additional libs
 from pytube import YouTube
@@ -12,22 +7,21 @@ from pytube.exceptions import RegexMatchError
 from pytube.helpers import safe_filename
 from filesize import naturalsize
 from streams_sorting import justify_streams
-from thread_handler import initiate_thread
+from time_format import standard_time
 
 # import threading modules
 from object_handle import VideoHandleThread, SubtitleHandleThread, PlaylistHandleThread, CustomizingHandleThread
 
 # import different windows
 from windows.customize_playlist import CustomizingWindow
+from windows.video_download import VideoDownloadWindow
 from windows.video_template import VideoTemplate
 
 # import necessary modules
-from threading import Thread
 from os import path, makedirs
 
 # import gui modules
-from PyQt5.Qt import QObject, QThread, pyqtSignal
-from PyQt5.QtWidgets import QApplication, QMainWindow, QMessageBox, QLineEdit, QFileDialog, QLabel
+from PyQt5.QtWidgets import QApplication, QMainWindow, QMessageBox, QFileDialog, QLabel
 from PyQt5.uic import loadUi
 from lib.qt_material import apply_stylesheet
 
@@ -47,12 +41,16 @@ class MainWindow(QMainWindow):
 
         # windows attributes
         self.customize_window = None
+        self.video_download_window = None
 
         self.reset_gui()
 
     # specific for gui actions
     def reset_gui(self, playlist_tab=False):
         loadUi("./gui/main window", self)
+
+        self.current_video = {}
+        self.current_playlist = {}
 
         # resetting threads
         if self.video_handle_thread:
@@ -61,6 +59,8 @@ class MainWindow(QMainWindow):
             self.playlist_handle_thread.terminate()
         if self.subtitle_handle_thread:
             self.subtitle_handle_thread.terminate()
+        if self.customizing_handle_thread:
+            self.customizing_handle_thread.terminate()
 
         # resetting video tab
         self.video_save_location.setEnabled(False)
@@ -104,6 +104,7 @@ class MainWindow(QMainWindow):
         self.playlist_browse_b.clicked.connect(self.get_playlist_save_location)
         self.playlist_videos_radio.clicked.connect(lambda: self.change_playlist_type("videos"))
         self.playlist_audios_radio.clicked.connect(lambda: self.change_playlist_type("audios"))
+        self.video_quality.currentIndexChanged.connect(self.define_stream_filename)
         self.playlist_quality.currentIndexChanged.connect(self.change_playlist_quality)
         self.playlist_reset_b.clicked.connect(lambda: self.reset_gui(True))
         self.playlist_customize_b.clicked.connect(self.customize_playlist)
@@ -115,6 +116,7 @@ class MainWindow(QMainWindow):
         try:
             # initiate YouTube object
             video = YouTube(url)
+            self.current_video["video"] = video
 
             # initiate video handle thread
             self.video_handle_thread = VideoHandleThread(video=video, parent=self)
@@ -135,21 +137,23 @@ class MainWindow(QMainWindow):
 
     def display_video_data(self):
         self.statusBar().showMessage("Ready to download")
-        self.define_video_filename()
+        self.video_radio.setChecked(True)
         self.show_streams("video")
         self.video_browse_b.setEnabled(True)
         self.video_type_group.setEnabled(True)
-        self.video_radio.setChecked(True)
         self.video_quality.setEnabled(True)
         self.video_subtitle.setEnabled(True)
         self.video_reset_b.setEnabled(True)
         self.video_download_b.setEnabled(True)
 
-    def define_video_filename(self):
-        video_filename = self.current_video["streams"].filter(only_video=True)[0].default_filename
-        audio_filename = self.current_video["streams"].filter(only_audio=True)[0].default_filename
-        self.current_video["video_filename"] = path.join(videos_dir, video_filename)
-        self.current_video["audio_filename"] = path.join(audios_dir, audio_filename)
+    def define_stream_filename(self):
+        current = self.video_quality.currentIndex()
+        if current == -1:
+            return
+        stream_type = "video" if self.video_radio.isChecked() else "audio"
+        stream_filename = self.current_video["resolved_streams"][current][
+            f"{stream_type}_stream_object"].default_filename
+        self.video_save_location.setText(path.join(videos_dir, stream_filename))
 
     def get_video_save_location(self):
         file_location, _ = QFileDialog.getSaveFileName(parent=self,
@@ -164,12 +168,11 @@ class MainWindow(QMainWindow):
         counter = 0
         items = {}
         if streams_type == "video":
-            self.video_save_location.setText(self.current_video["video_filename"])
             for stream in self.current_video["streams"].filter(progressive=True):
                 items[counter] = {
                     "type": "progressive",
                     "display": f"{stream.mime_type} (merged)  {stream.resolution}  {naturalsize(stream.filesize)}",
-                    "video": stream
+                    "video_stream_object": stream
                 }
                 counter += 1
             if ffmpeg_script():
@@ -183,25 +186,27 @@ class MainWindow(QMainWindow):
                         "type": "unmerged",
                         "display":
                             f"{vid.mime_type} (unmerged)  {vid.resolution}  {naturalsize(vid.filesize + aud.filesize)}",
-                        "video": vid,
-                        "audio": aud,
+                        "video_stream_object": vid,
+                        "audio_stream_object": aud,
                     }
 
                     counter += 1
         else:
-            self.video_save_location.setText(self.current_video["audio_filename"])
             for stream in self.current_video["streams"].filter(only_audio=True):
                 items[counter] = {
                     "type": "audio",
                     "display": f"{stream.mime_type} (audio)  {naturalsize(stream.filesize)}",
-                    "audio": stream
+                    "audio_stream_object": stream
                 }
                 counter += 1
 
+        self.video_quality.currentIndexChanged.disconnect(self.define_stream_filename)
         self.video_quality.clear()
         self.current_video["resolved_streams"] = items
         for item in items:
             self.video_quality.addItem(items[item]["display"])
+        self.video_quality.currentIndexChanged.connect(self.define_stream_filename)
+        self.define_stream_filename()
 
     def display_subtitles(self):
         self.video_subtitle.addItem("no subtitle")
@@ -211,17 +216,53 @@ class MainWindow(QMainWindow):
                 self.video_subtitle.addItem(subtitle)
 
     def fetch_video_download_data(self):
+        # collect the data selected for the video
         save_location = self.video_save_location.text()
         if save_location == "":
             self.show_message(QMessageBox.Warning, "Choose save location", False)
             return
-        quality = self.video_quality.currentIndex()
-        subtitle = self.video_subtitle.currentIndex()
-        print(f"save_location: {save_location}")
-        print(f"stream: {self.current_video['resolved_streams'][quality]}")
-        print(f"subtitle: {self.current_video['subtitle_object'].get_lang_code(subtitle - 1)}"
-              if subtitle != 0
-              else "no subtitle")
+        download_data = {}
+        current_video = self.current_video
+        download_data["url"] = self.video_url.text()
+        download_data["location"] = save_location
+        quality_index = self.video_quality.currentIndex()
+        subtitle_index = self.video_subtitle.currentIndex()
+        download_data["title"] = current_video["video"].title
+        download_data["author"] = current_video["video"].author
+        download_data["length"] = standard_time(current_video["video"].length)
+        current_video_selected_stream = current_video["resolved_streams"][quality_index]
+        stream_type = current_video_selected_stream["type"]
+        if stream_type == "progressive":
+            video_stream_object = current_video_selected_stream["video_stream_object"]
+            audio_stream_object = None
+            download_data["quality"] = f"{video_stream_object.resolution} (progressive)"
+            download_data["size"] = naturalsize(video_stream_object.filesize)
+        elif stream_type == "unmerged":
+            video_stream_object = current_video_selected_stream["video_stream_object"]
+            audio_stream_object = current_video_selected_stream["audio_stream_object"]
+            download_data["quality"] = f"video: {video_stream_object.resolution}   " \
+                                       f"   audio: {audio_stream_object.abr}    (unmerged)"
+            download_data["size"] = f"video: {naturalsize(video_stream_object.filesize)}   " \
+                                    f"+   audio: {naturalsize(audio_stream_object.filesize)}"
+        else:
+            video_stream_object = None
+            audio_stream_object = current_video_selected_stream["audio_stream_object"]
+            download_data["quality"] = f"{audio_stream_object.abr} (audio)"
+            download_data["size"] = naturalsize(audio_stream_object.filesize)
+        download_data["thumbnail"] = current_video["video"].thumbnail_url
+        download_data["subtitle"] = f"subtitle: " \
+                                    f"{self.current_video['subtitle_object'].get_lang_code(subtitle_index - 1)}" \
+            if subtitle_index != 0 \
+            else "no subtitle"
+        download_data["stream_type"] = stream_type
+        download_data["video_stream_object"] = video_stream_object
+        download_data["audio_stream_object"] = audio_stream_object
+
+        # instantiate downloading window
+        self.video_download_window = VideoDownloadWindow(download_data)
+        # self.hide()
+        self.video_download_window.show()
+        print(download_data)
 
     # specific for playlist handling
     def get_playlist(self):
@@ -307,15 +348,18 @@ class MainWindow(QMainWindow):
         self.customizing_handle_thread.start()
 
     def prepare_video_templates(self):
-        for video in self.current_playlist["download_data"]:
-            self.current_playlist["download_data"][video]["template"] = VideoTemplate(
-                self.current_playlist["download_data"][video]["video_data"]
+        try:
+            for video in self.current_playlist["download_data"]:
+                self.current_playlist["download_data"][video]["template"] = VideoTemplate(
+                    self.current_playlist["download_data"][video]["video_data"]
+                )
+            self.customize_window = CustomizingWindow(
+                self.current_playlist["playlist_title"],
+                self.current_playlist["download_data"],
             )
-        self.customize_window = CustomizingWindow(
-            self.current_playlist["playlist_title"],
-            self.current_playlist["download_data"],
-        )
-        self.customize_window.playlist_custom_data.connect(self.receive_custom_download_data)
+            self.customize_window.playlist_custom_data.connect(self.receive_custom_download_data)
+        except KeyError:
+            return
 
     def customize_playlist(self):
         if self.current_playlist["customized"]:
@@ -376,7 +420,8 @@ videos_dir, audios_dir, playlists_dir = "", "", ""
 
 # check whether ffmpeg script is found
 def ffmpeg_script() -> bool:
-    return path.exists("./lib/ffmpeg.exe")
+    # return path.exists("./lib/ffmpeg.exe")
+    return True
 
 
 def prepare_download_location():
@@ -395,6 +440,9 @@ def prepare_download_location():
 # https://www.youtube.com/watch?v=RBSGKlAvoiM&pp=ygUicHl0aG9uIGRhdGEgc3RydWN0dXJlcyBmdWxsIGNvdXJzZQ%3D%3D
 
 # https://www.youtube.com/playlist?list=PLMSBalys69yzbmRgoceGUidP8B7fir1dx
+
+
+# https://www.youtube.com/watch?v=gb7pZZKqFoE
 
 if __name__ == "__main__":
     prepare_download_location()

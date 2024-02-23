@@ -20,14 +20,15 @@ logger = logging.getLogger(__name__)
 default_range_size = 9437184  # 9MB
 from streams import Stream
 
+
 def _execute_request(
-    url,
-    method=None,
-    headers=None,
-    data=None,
-    timeout=socket._GLOBAL_DEFAULT_TIMEOUT,
-    start_pos=0,
-    stop_pos=0
+        url,
+        method=None,
+        headers=None,
+        data=None,
+        timeout=socket._GLOBAL_DEFAULT_TIMEOUT,
+        start_pos=0,
+        stop_pos=0
 ):
     base_headers = {"User-Agent": "Mozilla/5.0", "accept-language": "en-US,en"}
     if headers:
@@ -92,9 +93,9 @@ def post(url, extra_headers=None, data=None, timeout=socket._GLOBAL_DEFAULT_TIME
 
 
 def seq_stream(
-    stream_object: Stream,
-    timeout=socket._GLOBAL_DEFAULT_TIMEOUT,
-    max_retries=0
+        stream_object: Stream,
+        timeout=socket._GLOBAL_DEFAULT_TIMEOUT,
+        max_retries=0
 ):
     """Read the response in sequence.
     :param str url: The URL to perform the GET request for.
@@ -137,9 +138,9 @@ def seq_stream(
 
 
 def stream(
-    stream_object: Stream,
-    timeout=socket._GLOBAL_DEFAULT_TIMEOUT,
-    max_retries=0
+        stream_object: Stream,
+        timeout=socket._GLOBAL_DEFAULT_TIMEOUT,
+        max_retries=0
 ):
     """Read the response in chunks.
     :param str url: The URL to perform the GET request for.
@@ -180,7 +181,7 @@ def stream(
             tries += 1
 
         while stream_object.download_state:
-            chunk = response.read(512 * 4)
+            chunk = response.read(1)#512 * 4)
             if not chunk:
                 break
             downloaded += len(chunk)
@@ -196,6 +197,7 @@ def filesize(url):
     :returns: int: size in bytes of remote file
     """
     return int(head(url)["content-length"])
+
 
 @lru_cache()
 def accept_ranges(url):

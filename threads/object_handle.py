@@ -1,12 +1,15 @@
-# PyQt5 modules
 from http.client import IncompleteRead
 from urllib.error import URLError
+from os.path import basename, dirname, getsize
+from time import sleep
+from time_format import standard_time
 
+# PyQt5 modules
 from PyQt5.Qt import QThread, QWidget
 from PyQt5.QtCore import pyqtSignal
 from PyQt5.uic import loadUi
 # Youtube modules
-from pytube import YouTube, Playlist
+from pytube import YouTube, Playlist, Stream
 # Subtitle modules
 from subtitle import Subtitle
 
@@ -101,7 +104,7 @@ class PlaylistHandleThread(QThread):
         except KeyError:
             self.error.emit("critical", "Invalid URL!", True, True)
         except URLError:
-            self.error.emit("critical", "Connection Error!", True, True)
+            self.error.emit("critical", "Check your internet connection!", True, True)
         except Exception:
             self.error.emit("critical", "Unexpected Error!", True, True)
 
@@ -160,3 +163,82 @@ class CustomizingHandleThread(QThread):
                                                 }}
         self.parent_.current_playlist["download_data"] = self.videos_widgets
         self.finished.emit()
+
+
+class VideoDownloadHandleThread(QThread):
+    on_download_start = pyqtSignal()
+    on_download_finish = pyqtSignal()
+    download_stat = pyqtSignal(dict)
+
+    def __init__(self, stream: Stream, file_path: str, filesize: int):
+        super(VideoDownloadHandleThread, self).__init__()
+        self.stream = stream
+        self.filename = basename(file_path)
+        self.output_path = dirname(file_path)
+        self.filesize = filesize
+        self.analyzer = DownloadAnalyzerHandle(
+            file=file_path,
+            length=stream.filesize,
+            callback=self.download_stat.emit
+        )
+
+        self.on_download_start.connect(self.analyzer.start)
+        self.analyzer.finished.connect(self.terminate)
+        self.analyzer.finished.connect(self.deleteLater)
+        # print("pass")
+
+    def run(self) -> None:
+        # from time import sleep
+        # for i in range(10):
+        #     print(i)
+        #     sleep(1)
+        # print("ahmed")
+        # self.a = 10
+        # while self.a < 30:
+        #     self.a += 1
+        self.stream.download(
+            output_path=self.output_path,
+            filename=self.filename,
+            start_signal=self.on_download_start,
+            stop_signal=self.on_download_finish
+        )
+        # self.finished.emit()
+        # self.quit()
+
+
+class DownloadAnalyzerHandle(QThread):
+    def __init__(self, file: str, length: int, callback=None):
+        super(DownloadAnalyzerHandle, self).__init__()
+        self.filename = file
+        self.length = length
+        self.lastSize = 0
+        self.callback = callback
+        self.on_progress = True
+
+        self.finished.connect(self.deleteLater)
+
+    def run(self) -> None:
+        delay = 0.5
+        while self.on_progress:
+            currentSize = getsize(self.filename)
+            rate = (currentSize - self.lastSize) / delay
+            estimatedSize = self.length - currentSize
+            estimatedTime = standard_time(estimatedSize / rate) if rate else "N/A"
+            self.lastSize = currentSize
+            progress = int((currentSize / self.length) * 100)
+            data = {
+                "rate": rate,
+                "downloaded": currentSize,
+                "estimated_size": estimatedSize,
+                "estimated_time": estimatedTime,
+                "progress": progress
+            }
+            print(data)
+            if self.callback:
+                self.callback(data)
+            sleep(delay)
+            if progress == 100:
+                break
+
+    def stop(self):
+        self.terminate()
