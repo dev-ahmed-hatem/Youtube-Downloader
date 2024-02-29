@@ -234,7 +234,7 @@ class DownloadAnalyzerHandle(QThread):
                 "estimated_time": estimatedTime,
                 "progress": progress
             }
-            print(data)
+            # print(data)
             if self.callback:
                 self.callback(data)
             sleep(delay)

@@ -23,7 +23,7 @@ class VideoDownloadWindow(QMainWindow):
         self.setWindowTitle(download_data["title"])
         self.main_window = parent
 
-        # declare the current manipulated stream
+        # declare the window manipulators
         self.download_handle = None
         self.tasks = {}
         self.current_task = 0
@@ -62,23 +62,70 @@ class VideoDownloadWindow(QMainWindow):
         self.progress.setValue(stat["progress"])
         self.progress_label.setText(f"Progress:    {stat['progress']}%")
 
-    def manage_tasks(self):
+    def define_tasks(self):
         stream_type = self.download_data["stream_type"]
         if stream_type == "video" or stream_type == "audio":
-            self.download_stream(stream=self.download_data[f"{stream_type}_stream_object"],
-                                 file_path=self.download_data["location"],
-                                 stream_type=f"{stream_type}")
+            self.tasks = {0: {
+                "type": stream_type,
+                "done": False
+            }}
+
+        else:
+            self.tasks = {
+                0: {
+                    "type": "video",
+                    "done": False,
+                },
+                1: {
+                    "type": "audio",
+                    "done": False,
+                },
+                2: {
+                    "type": "merging",
+                    "done": False,
+                }
+            }
+        self.manage_tasks()
+
+    def manage_tasks(self):
+        current_task = self.tasks.get(self.current_task)
+        if current_task is not None:
+            if current_task["type"] == "video" or current_task["type"] == "audio":
+                if self.download_data["stream_type"] == "unmerged" and current_task["type"] == "audio":
+                    location = self.download_data["location"] + " (audio)"
+                else:
+                    location = self.download_data["location"]
+                print(location)
+                self.download_stream(stream=self.download_data[f"{current_task['type']}_stream_object"],
+                                     file_path=location,
+                                     stream_type=current_task["type"])
+            else:
+                print(current_task["type"])
+        else:
+            self.on_tasks_finished()
+
+    def next_task(self):
+        self.tasks[self.current_task]["done"] = True
+        self.current_task += 1
+        self.manage_tasks()
 
     def download_stream(self, stream: Stream, file_path, stream_type: str):
+        # stop and wait for previous tasks' threads
+        if self.download_handle:
+            self.download_handle.quit()
+            self.download_handle.wait()
+            self.download_handle.analyzer.quit()
+            self.download_handle.analyzer.wait()
+
         self.download_handle = VideoDownloadHandleThread(
             stream=stream,
             file_path=file_path,
             filesize=stream.filesize
         )
         self.download_handle.download_stat.connect(self.display_download_stat)
-        self.download_handle.analyzer.completed.connect(self.on_download_finished)
+        self.download_handle.analyzer.completed.connect(self.next_task)
         self.download_handle.on_error.connect(self.on_error)
-        self.download_handle.finished.connect(lambda: print("finished"))
+        # self.download_handle.finished.connect(lambda: print("finished"))
         self.download_handle.start()
         self.statusBar().showMessage(f"downloading {stream_type} ..")
 
@@ -100,7 +147,7 @@ class VideoDownloadWindow(QMainWindow):
             self.pause_resume()
         a0.accept()
 
-    def on_download_finished(self):
+    def on_tasks_finished(self):
         file_path = self.download_data['location']
         msg = QMessageBox(parent=self)
         msg.setWindowTitle("Download Finished")

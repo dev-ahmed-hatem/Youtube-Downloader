@@ -267,7 +267,7 @@ class MainWindow(QMainWindow):
         self.video_download_window = VideoDownloadWindow(self, download_data)
         self.hide()
         self.video_download_window.show()
-        self.video_download_window.manage_tasks()
+        self.video_download_window.define_tasks()
 
     # specific for playlist handling
     def get_playlist(self):

@@ -5,12 +5,16 @@ sys.path.append("./lib")
 sys.path.append("./lib/pytube")
 from lib.pytube import Playlist, YouTube
 from lib.filesize import naturalsize
+from subtitle import *
 
-videoStreams = YouTube("https://www.youtube.com/watch?v=F4Zu5ZZAG7I").streams
-for stream in videoStreams:
-    print(stream.get_file_path())
-exit()
-print(videoStreams[2].download())
+id = YouTube("https://www.youtube.com/watch?v=HFWQdGn5DaU").video_id
+subtitle_object = Subtitle(video_id=id)
+# print(subtitle_object.get_subtitles())
+print(subtitle_object.generate_srt_format(27))
+
+
+
+
 # print(videoStreams[1].get_file_path())
 
 
