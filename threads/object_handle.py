@@ -185,7 +185,7 @@ class VideoDownloadHandleThread(QThread):
 
         self.on_download_start.connect(self.analyzer.start)
         self.analyzer.finished.connect(self.stop)
-        self.analyzer.finished.connect(self.deleteLater)
+        # self.analyzer.finished.connect(self.deleteLater)
 
     def run(self) -> None:
         self.stream.download_state = True

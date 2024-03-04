@@ -143,7 +143,7 @@ class VideoDownloadWindow(QMainWindow):
             self.statusBar().showMessage("download paused")
 
     def closeEvent(self, a0: QCloseEvent) -> None:
-        if not self.pause:
+        if self.pause:
             self.pause_resume()
         a0.accept()
 
