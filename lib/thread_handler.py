@@ -1,4 +1,4 @@
-from PyQt5.Qt import QObject, QThread, pyqtSignal
+from PyQt5.Qt import QObject, QThread
 
 
 # takes an array of signals and bounded slots then initiating QThread

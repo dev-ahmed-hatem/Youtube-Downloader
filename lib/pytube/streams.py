@@ -16,7 +16,7 @@ from urllib.error import HTTPError
 from urllib.parse import parse_qs
 
 import filesize
-from pytube import extract, request
+from . import extract, request
 from pytube.helpers import safe_filename, target_directory
 from pytube.itags import get_format_profile
 from pytube.monostate import Monostate

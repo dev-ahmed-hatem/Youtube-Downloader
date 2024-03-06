@@ -18,7 +18,6 @@ from pytube.helpers import regex_search
 
 logger = logging.getLogger(__name__)
 default_range_size = 9437184  # 9MB
-from streams import Stream
 
 
 def _execute_request(
@@ -93,7 +92,7 @@ def post(url, extra_headers=None, data=None, timeout=socket._GLOBAL_DEFAULT_TIME
 
 
 def seq_stream(
-        stream_object: Stream,
+        stream_object,
         timeout=socket._GLOBAL_DEFAULT_TIMEOUT,
         max_retries=0
 ):
@@ -138,7 +137,7 @@ def seq_stream(
 
 
 def stream(
-        stream_object: Stream,
+        stream_object,
         timeout=socket._GLOBAL_DEFAULT_TIMEOUT,
         max_retries=0
 ):
@@ -181,7 +180,7 @@ def stream(
             tries += 1
 
         while stream_object.download_state:
-            chunk = response.read(1)#512 * 4)
+            chunk = response.read(1)  # 512 * 4)
             if not chunk:
                 break
             downloaded += len(chunk)

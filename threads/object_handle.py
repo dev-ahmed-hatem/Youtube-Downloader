@@ -3,11 +3,14 @@ from urllib.error import URLError
 from os.path import basename, dirname, getsize
 from time import sleep
 from time_format import standard_time
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from main import MainWindow
 
 # PyQt5 modules
-from PyQt5.Qt import QThread, QWidget
+from PyQt5.Qt import QThread
 from PyQt5.QtCore import pyqtSignal
-from PyQt5.uic import loadUi
+
 # Youtube modules
 from pytube import YouTube, Playlist, Stream
 # Subtitle modules
@@ -19,7 +22,7 @@ class VideoHandleThread(QThread):
     display_video_data = pyqtSignal()
     error = pyqtSignal(str, str)
 
-    def __init__(self, video: YouTube, parent):
+    def __init__(self, video: YouTube, parent: "MainWindow"):
         super(VideoHandleThread, self).__init__()
 
         # define parent and selected video
@@ -34,7 +37,8 @@ class VideoHandleThread(QThread):
             self.success = True
         except (URLError, IncompleteRead):
             self.error.emit("critical", "Connection Error!")
-        except Exception:
+        except Exception as e:
+            print(e)
             self.error.emit("critical", "Unexpected Error!")
 
         if self.success:
@@ -62,7 +66,8 @@ class SubtitleHandleThread(QThread):
             self.parent_.current_video["subtitles_display"] = subtitle.get_subtitles()
             self.parent_.current_video["subtitle_object"] = subtitle
             self.success = True
-        except Exception:
+        except Exception as e:
+            print(e)
             self.parent_.current_video["subtitles_display"] = None
 
         self.display_subtitles.emit()
@@ -75,7 +80,7 @@ class PlaylistHandleThread(QThread):
     display_playlist_size = pyqtSignal()
     error = pyqtSignal(str, str, bool, bool)
 
-    def __init__(self, playlist_url, parent):
+    def __init__(self, playlist_url, parent: "MainWindow"):
         super(PlaylistHandleThread, self).__init__()
 
         self.parent_ = parent
@@ -105,7 +110,8 @@ class PlaylistHandleThread(QThread):
             self.error.emit("critical", "Invalid URL!", True, True)
         except URLError:
             self.error.emit("critical", "Check your internet connection!", True, True)
-        except Exception:
+        except Exception as e:
+            print(e)
             self.error.emit("critical", "Unexpected Error!", True, True)
 
         if self.success:
@@ -136,7 +142,8 @@ class PlaylistHandleThread(QThread):
             self.error.emit("critical", "Invalid URL!\nCouldn't calculate size", False, True)
         except URLError:
             self.error.emit("critical", "Connection Error!\nCouldn't calculate size", False, True)
-        except Exception:
+        except Exception as e:
+            print(e)
             self.error.emit("critical", "Unexpected Error!\nCouldn't calculate size", False, True)
 
         if self.success:
@@ -146,7 +153,7 @@ class PlaylistHandleThread(QThread):
 
 
 class CustomizingHandleThread(QThread):
-    def __init__(self, playlist, parent):
+    def __init__(self, playlist, parent: "MainWindow"):
         super(CustomizingHandleThread, self).__init__()
         self.parent_ = parent
         self.playlist_object = playlist
@@ -197,7 +204,8 @@ class VideoDownloadHandleThread(QThread):
                 stop_signal=self.on_download_finish
             )
             self.finished.emit()
-        except Exception:
+        except Exception as e:
+            print(e)
             self.analyzer.terminate()
             self.on_error.emit()
 
