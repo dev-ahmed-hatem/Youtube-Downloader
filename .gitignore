@@ -3,3 +3,4 @@
 /playground/test2.py
 /lib/merging.zip
 /lib/merging/imageio_ffmpeg/binaries/
+__pycache__/

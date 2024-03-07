@@ -1,5 +1,4 @@
 # import additional libs
-
 from lib.pytube import YouTube
 from lib.pytube.exceptions import RegexMatchError
 from lib.pytube.helpers import safe_filename
@@ -8,7 +7,7 @@ from lib.streams_sorting import justify_streams
 from lib.time_format import standard_time
 
 # import threading modules
-from object_handle import VideoHandleThread, SubtitleHandleThread, PlaylistHandleThread, CustomizingHandleThread
+from threads.object_handle import VideoHandleThread, SubtitleHandleThread, PlaylistHandleThread, CustomizingHandleThread
 
 # import different windows
 from windows.customize_playlist import CustomizingWindow
@@ -17,6 +16,7 @@ from windows.video_template import VideoTemplate
 
 # import necessary modules
 from os import path
+from lib import download_dirs
 
 # import gui modules
 from PyQt5.QtWidgets import QMainWindow, QMessageBox, QFileDialog, QLabel
@@ -151,10 +151,10 @@ class MainWindow(QMainWindow):
         stream_filename = self.current_video["resolved_streams"][current][
             f"{stream_type}_stream_object"].default_filename
         if stream_type == "video":
-            self.current_video["stream_file_location"] = path.join(videos_dir, stream_filename)
+            self.current_video["stream_file_location"] = path.join(download_dirs.videos_dir, stream_filename)
             self.video_save_location.setText(self.current_video["stream_file_location"])
         else:
-            self.current_video["stream_file_location"] = path.join(audios_dir, stream_filename)
+            self.current_video["stream_file_location"] = path.join(download_dirs.audios_dir, stream_filename)
             self.video_save_location.setText(self.current_video["stream_file_location"])
 
     def get_video_save_location(self):
@@ -177,7 +177,7 @@ class MainWindow(QMainWindow):
                     "video_stream_object": stream
                 }
                 counter += 1
-            if ffmpeg_script():
+            if download_dirs.ffmpeg_script():
                 video_streams = self.current_video["streams"].filter(only_video=True)
                 audio_streams = self.current_video["streams"].filter(only_audio=True)
                 unmerged = justify_streams(audio_streams, video_streams)
@@ -316,7 +316,7 @@ class MainWindow(QMainWindow):
 
     def define_playlist_filename(self):
         playlist_dirname = safe_filename(self.current_playlist["playlist_title"])
-        self.current_playlist["playlist_location"] = path.join(playlists_dir, playlist_dirname)
+        self.current_playlist["playlist_location"] = path.join(download_dirs.playlists_dir, playlist_dirname)
 
     def get_playlist_save_location(self):
         playlist_location = QFileDialog.getExistingDirectory(parent=self,

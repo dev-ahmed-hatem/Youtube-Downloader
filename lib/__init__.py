@@ -1,8 +1,10 @@
 # add additional libs to path
 import sys
-from lib import pytube
+from os import path
 
-sys.path.append("./")
-# sys.path.append("./pytube")
-sys.path.append("./threads")
-sys.path.append("./windows")
+lib_dir = path.dirname(__file__)
+
+sys.path.append(lib_dir)
+sys.path.append(path.join(lib_dir, "pytube"))
+sys.path.append(path.join(lib_dir, "threads"))
+sys.path.append(path.join(lib_dir, "windows"))
