@@ -42,6 +42,7 @@ class TqdmWarning(Warning):
 
     Used for non-external-code-breaking errors, such as garbled printing.
     """
+
     def __init__(self, msg, fp_write=None, *a, **k):
         if fp_write is not None:
             fp_write("\n" + self.__class__.__name__ + ": " + str(msg).rstrip() + '\n')
@@ -179,7 +180,7 @@ class Bar(object):
                 raise KeyError
         except (KeyError, AttributeError):
             warn("Unknown colour (%s); valid choices: [hex (#00ff00), %s]" % (
-                 value, ", ".join(self.COLOURS)),
+                value, ", ".join(self.COLOURS)),
                  TqdmWarning, stacklevel=2)
             self._colour = None
 
@@ -223,6 +224,7 @@ class EMA(object):
         Increase to give more weight to recent values.
         Ranges from 0 (yields old value) to 1 (yields new value).
     """
+
     def __init__(self, smoothing=0.3):
         self.alpha = smoothing
         self.last = 0
@@ -366,6 +368,7 @@ class tqdm(Comparable):
     monitor_interval = 10  # set to 0 to disable the thread
     monitor = None
     _instances = WeakSet()
+    monitor_callback = None
 
     @staticmethod
     def format_sizeof(num, suffix='', divisor=1000):
@@ -461,8 +464,8 @@ class tqdm(Comparable):
 
         return print_status
 
-    @staticmethod
-    def format_meter(n, total, elapsed, ncols=None, prefix='', ascii=False, unit='it',
+    # @staticmethod
+    def format_meter(self, n, total, elapsed, monitor_callback=None, ncols=None, prefix='', ascii=False, unit='it',
                      unit_scale=False, rate=None, bar_format=None, postfix=None,
                      unit_divisor=1000, initial=0, colour=None, **extra_kwargs):
         """
@@ -554,8 +557,8 @@ class tqdm(Comparable):
         rate_noinv_fmt = ((format_sizeof(rate) if unit_scale else f'{rate:5.2f}')
                           if rate else '?') + unit + '/s'
         rate_inv_fmt = (
-            (format_sizeof(inv_rate) if unit_scale else f'{inv_rate:5.2f}')
-            if inv_rate else '?') + 's/' + unit
+                           (format_sizeof(inv_rate) if unit_scale else f'{inv_rate:5.2f}')
+                           if inv_rate else '?') + 's/' + unit
         rate_fmt = rate_inv_fmt if inv_rate and inv_rate > 1 else rate_noinv_fmt
 
         if unit_scale:
@@ -605,6 +608,15 @@ class tqdm(Comparable):
             'remaining': remaining_str, 'remaining_s': remaining,
             'l_bar': l_bar, 'r_bar': r_bar, 'eta': eta_dt,
             **extra_kwargs}
+
+        if self.monitor_callback:
+            data = {
+                "progress": int(n * 100 / total),
+                "rate": rate_fmt,
+                "estimated_time": remaining_str
+            }
+
+            self.monitor_callback(data)
 
         # total is known: we can predict some stats
         if total:
@@ -1008,7 +1020,7 @@ class tqdm(Comparable):
 
         # Preprocess the arguments
         if (
-            (ncols is None or nrows is None) and (file in (sys.stderr, sys.stdout))
+                (ncols is None or nrows is None) and (file in (sys.stderr, sys.stdout))
         ) or dynamic_ncols:  # pragma: no cover
             if dynamic_ncols:
                 dynamic_ncols = _screen_shape_wrapper()

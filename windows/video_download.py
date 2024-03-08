@@ -6,11 +6,15 @@ from load_piximage import load_piximage_from_url
 from threading import Thread
 from pytube import Stream
 
-from threads.object_handle import VideoDownloadHandleThread
+from threads.object_handle import VideoDownloadHandleThread, MergeStreamsHandle
 
 from filesize import naturalsize
-from os.path import basename, dirname
-from os import startfile
+from os.path import basename, dirname, join, exists
+from os import startfile, remove
+from lib.dirs import playground_dir
+
+# moviepy merging modules
+from lib.merging.moviepy.editor import VideoFileClip, AudioFileClip
 
 
 class VideoDownloadWindow(QMainWindow):
@@ -25,6 +29,7 @@ class VideoDownloadWindow(QMainWindow):
 
         # declare the window manipulators
         self.download_handle = None
+        self.merge_handle = None
         self.tasks = {}
         self.current_task = 0
         self.pause = False
@@ -56,11 +61,27 @@ class VideoDownloadWindow(QMainWindow):
             self.img_2.setText("Failed!")
 
     def display_download_stat(self, stat: dict):
-        self.rate.setText(f"{naturalsize(stat['rate'])}/s")
-        self.downloaded.setText(str(naturalsize(stat["downloaded"])))
+        # TODO: refine data displayed
+        # display rate if found
+        # display estimated time if found
+
+        self.rate.setText(naturalsize(stat['rate']))
         self.estimated.setText(f"Size: {naturalsize(stat['estimated_size'])}      Time: {stat['estimated_time']}")
+        self.downloaded.setText(str(naturalsize(stat["downloaded"])))
         self.progress.setValue(stat["progress"])
         self.progress_label.setText(f"Progress:    {stat['progress']}%")
+
+    def display_merging_stat(self, stat: dict, show_status: bool = False):
+        if show_status:
+            self.statusBar().showMessage(f"Performing merging tasks ({stat['current']}/{stat['total']})")
+            return
+        self.rate.setText(f"merging: {stat['rate']}")
+        self.estimated.setText(f"Time: {stat['estimated_time']}")
+        self.progress.setValue(stat['progress'])
+        self.progress_label.setText(f"Progress:    {stat['progress']}%")
+
+    def show_merging_status(self, current, total):
+        self.statusBar().showMessage(f"Performing merging tasks ({current}/{total})")
 
     def define_tasks(self):
         stream_type = self.download_data["stream_type"]
@@ -89,18 +110,26 @@ class VideoDownloadWindow(QMainWindow):
 
     def manage_tasks(self):
         current_task = self.tasks.get(self.current_task)
+        self.current_task
         if current_task is not None:
+
+            print(current_task)
             if current_task["type"] == "video" or current_task["type"] == "audio":
-                if self.download_data["stream_type"] == "unmerged" and current_task["type"] == "audio":
-                    location = self.download_data["location"] + " (audio)"
+                if self.download_data["stream_type"] == "unmerged":
+                    location = join(playground_dir, basename(self.download_data["location"])) + (
+                        " (audio)" if current_task["type"] == "audio" else "")
                 else:
                     location = self.download_data["location"]
-                print(location)
+
                 self.download_stream(stream=self.download_data[f"{current_task['type']}_stream_object"],
                                      file_path=location,
                                      stream_type=current_task["type"])
             else:
-                print(current_task["type"])
+                clip_location = join(playground_dir, basename(self.download_data["location"]))
+                self.cancel_btn.setEnabled(False)
+                self.pause_resume_btn.setEnabled(False)
+                self.merge_streams(clip_location, self.download_data["location"])
+
         else:
             self.on_tasks_finished()
 
@@ -112,10 +141,10 @@ class VideoDownloadWindow(QMainWindow):
     def download_stream(self, stream: Stream, file_path, stream_type: str):
         # stop and wait for previous tasks' threads
         if self.download_handle:
-            self.download_handle.quit()
-            self.download_handle.wait()
             self.download_handle.analyzer.quit()
             self.download_handle.analyzer.wait()
+            self.download_handle.quit()
+            self.download_handle.wait()
 
         self.download_handle = VideoDownloadHandleThread(
             stream=stream,
@@ -125,9 +154,26 @@ class VideoDownloadWindow(QMainWindow):
         self.download_handle.download_stat.connect(self.display_download_stat)
         self.download_handle.analyzer.completed.connect(self.next_task)
         self.download_handle.on_error.connect(self.on_error)
-        # self.download_handle.finished.connect(lambda: print("finished"))
+        self.download_handle.finished.connect(lambda: self.statusBar().showMessage("Downloading finished"))
         self.download_handle.start()
         self.statusBar().showMessage(f"downloading {stream_type} ..")
+
+    def merge_streams(self, clip_location, location):
+        self.merge_handle = MergeStreamsHandle(clip_location, location)
+        self.merge_handle.merging_stat.connect(self.display_merging_stat)
+        self.merge_handle.show_status.connect(self.show_merging_status)
+        self.merge_handle.finished.connect(lambda: self.remove_clips(clip_location))
+        self.merge_handle.finished.connect(lambda: self.statusBar().showMessage("All tasks finished"))
+        self.merge_handle.finished.connect(self.next_task)
+        self.merge_handle.on_error.connect(self.on_error)
+        self.merge_handle.start()
+        self.statusBar().showMessage("Performing merging tasks .. DO NOT CLOSE THE PROGRAM!")
+
+    def remove_clips(self, clip_location):
+        if exists(clip_location):
+            remove(clip_location)
+        if exists(clip_location + " (audio)"):
+            remove(clip_location + " (audio)")
 
     def pause_resume(self):
         if self.pause:

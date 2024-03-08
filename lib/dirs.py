@@ -1,7 +1,10 @@
+import os
 from os import path, makedirs
 
 # define download locations if not exists
 videos_dir, audios_dir, playlists_dir = "", "", ""
+BASE_DIR = os.path.abspath("./")
+playground_dir = os.path.join(BASE_DIR, "playground")
 
 
 # check whether ffmpeg script is found

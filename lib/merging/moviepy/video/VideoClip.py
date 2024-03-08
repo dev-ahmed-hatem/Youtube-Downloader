@@ -10,7 +10,7 @@ import tempfile
 import warnings
 
 import numpy as np
-import proglog
+from lib.merging import proglog
 from imageio import imread, imsave
 
 from ..Clip import Clip
@@ -85,7 +85,7 @@ class VideoClip(Clip):
             self.make_frame = make_frame
             self.size = self.get_frame(0).shape[:2][::-1]
         self.ismask = ismask
-        self.has_constant_size=has_constant_size
+        self.has_constant_size = has_constant_size
         if duration is not None:
             self.duration = duration
             self.end = duration
@@ -140,7 +140,9 @@ class VideoClip(Clip):
                         rewrite_audio=True, remove_temp=True,
                         write_logfile=False, verbose=True,
                         threads=None, ffmpeg_params=None,
-                        logger='bar'):
+                        logger='bar',
+                        monitor_callback=None,
+                        status_callback=None):
         """Write the clip to a videofile.
 
         Parameters
@@ -254,8 +256,7 @@ class VideoClip(Clip):
         """
         name, ext = os.path.splitext(os.path.basename(filename))
         ext = ext[1:].lower()
-        logger = proglog.default_bar_logger(logger)
-        # logger.ca
+        logger = proglog.default_bar_logger(logger, monitor_callback=monitor_callback)
 
         if codec is None:
 
@@ -287,10 +288,19 @@ class VideoClip(Clip):
             audio_ext = find_extension(audio_codec)
             audiofile = (name + Clip._TEMP_FILES_PREFIX + "wvf_snd.%s" % audio_ext)
 
+        if make_audio:
+            total_tasks = 2
+        else:
+            total_tasks = 1
+        current_task = 0
+
         # enough cpu for multiprocessing ? USELESS RIGHT NOW, WILL COME AGAIN
         # enough_cpu = (multiprocessing.cpu_count() > 1)
         logger(message="Moviepy - Building video %s." % filename)
         if make_audio:
+            current_task += 1
+            if status_callback:
+                status_callback(current_task, total_tasks)
             self.audio.write_audiofile(audiofile, audio_fps,
                                        audio_nbytes, audio_bufsize,
                                        audio_codec, bitrate=audio_bitrate,
@@ -298,6 +308,9 @@ class VideoClip(Clip):
                                        verbose=verbose,
                                        logger=logger)
 
+        current_task += 1
+        if status_callback:
+            status_callback(current_task, total_tasks)
         ffmpeg_write_video(self, filename, fps, codec,
                            bitrate=bitrate,
                            preset=preset,
@@ -306,6 +319,13 @@ class VideoClip(Clip):
                            verbose=verbose, threads=threads,
                            ffmpeg_params=ffmpeg_params,
                            logger=logger)
+
+        if monitor_callback:
+            monitor_callback({
+                "progress": 100,
+                "rate": "finished",
+                "estimated_time": "00:00"
+            })
 
         if remove_temp and make_audio:
             if os.path.exists(audiofile):
@@ -526,8 +546,8 @@ class VideoClip(Clip):
         # GET IMAGE AND MASK IF ANY
 
         img = self.get_frame(ct)
-        mask = self.mask.get_frame(ct) if self.mask else None                
-        
+        mask = self.mask.get_frame(ct) if self.mask else None
+
         if mask is not None and ((img.shape[0] != mask.shape[0]) or (img.shape[1] != mask.shape[1])):
             img = self.fill_array(img, mask.shape)
 
@@ -787,9 +807,9 @@ class DataVideoClip(VideoClip):
         self.data = data
         self.data_to_frame = data_to_frame
         self.fps = fps
-        make_frame = lambda t: self.data_to_frame(self.data[int(self.fps*t)])
+        make_frame = lambda t: self.data_to_frame(self.data[int(self.fps * t)])
         VideoClip.__init__(self, make_frame, ismask=ismask,
-                           duration=1.0*len(data)/fps,
+                           duration=1.0 * len(data) / fps,
                            has_constant_size=has_constant_size)
 
 
@@ -933,7 +953,7 @@ class ImageClip(VideoClip):
         and not for each 'frame'.
         """
         if apply_to is None:
-                apply_to = []
+            apply_to = []
         arr = image_func(self.get_frame(0))
         self.size = arr.shape[:2][::-1]
         self.make_frame = lambda t: arr
@@ -1106,7 +1126,7 @@ class TextClip(ImageClip):
                     '' if size[1] is None else str(size[1]))
 
         cmd = ([get_setting("IMAGEMAGICK_BINARY"),
-               "-background", bg_color,
+                "-background", bg_color,
                 "-fill", color,
                 "-font", font])
 

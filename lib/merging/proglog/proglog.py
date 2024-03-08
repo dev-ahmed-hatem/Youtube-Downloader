@@ -1,7 +1,7 @@
 """Implements the generic progress logger class, and the ProgressBar class.
 """
 
-from tqdm import tqdm, tqdm_notebook
+from lib.merging.tqdm import tqdm, tqdm_notebook
 from collections import OrderedDict
 import time
 
@@ -9,11 +9,14 @@ SETTINGS = {
     'notebook': False
 }
 
+
 def notebook(turn='on'):
     SETTINGS['notebook'] = True if (turn == 'on') else False
 
+
 def troncate_string(s, max_length=25):
     return s if (len(s) < max_length) else (s[:max_length] + "...")
+
 
 class ProgressLogger:
     """Generic class for progress loggers.
@@ -90,12 +93,10 @@ class ProgressLogger:
                 self(**{field: it})
                 yield it
 
-
-
-
     def __call__(self, **kw):
         self.state.update(kw)
         self.callback(**kw)
+
 
 class ProgressBarLogger(ProgressLogger):
     """Generic class for progress loggers.
@@ -191,7 +192,7 @@ class ProgressBarLogger(ProgressLogger):
 
         def new_iterable():
             last_time = time.time()
-            i = 0 # necessary in case the iterator is empty
+            i = 0  # necessary in case the iterator is empty
             for i, it in enumerate(iterable):
                 now_time = time.time()
                 if (i == 0) or (now_time - last_time > self.min_time_interval):
@@ -256,6 +257,7 @@ class ProgressBarLogger(ProgressLogger):
         self.state.update(kw)
         self.callback(**kw)
 
+
 class TqdmProgressBarLogger(ProgressBarLogger):
     """Tqdm-powered progress bar for console or Notebooks.
 
@@ -291,7 +293,7 @@ class TqdmProgressBarLogger(ProgressBarLogger):
     def __init__(self, init_state=None, bars=None, leave_bars=False,
                  ignored_bars=None, logged_bars='all', notebook='default',
                  print_messages=True, min_time_interval=0,
-                 ignore_bars_under=0):
+                 ignore_bars_under=0, monitor_callback=None):
         ProgressBarLogger.__init__(self, init_state=init_state, bars=bars,
                                    ignored_bars=ignored_bars,
                                    logged_bars=logged_bars,
@@ -307,6 +309,7 @@ class TqdmProgressBarLogger(ProgressBarLogger):
         self.notebook = notebook
         self.print_messages = print_messages
         self.tqdm = (tqdm_notebook if self.notebook else tqdm)
+        self.monitor_callback = monitor_callback
 
     def new_tqdm_bar(self, bar):
         """Create a new tqdm bar, possibly replacing an existing one."""
@@ -314,11 +317,13 @@ class TqdmProgressBarLogger(ProgressBarLogger):
             self.close_tqdm_bar(bar)
         infos = self.bars[bar]
         self.tqdm_bars[bar] = self.tqdm(
-           total=infos['total'],
-           desc=infos['title'],
-           postfix=dict(now=troncate_string(str(infos['message']))),
-           leave=self.leave_bars
+            total=infos['total'],
+            desc=infos['title'],
+            postfix=dict(now=troncate_string(str(infos['message']))),
+            leave=self.leave_bars,
         )
+        self.tqdm_bars[bar].monitor_callback = self.monitor_callback
+
     def close_tqdm_bar(self, bar):
         """Close and erase the tqdm bar"""
         self.tqdm_bars[bar].close()
@@ -343,15 +348,16 @@ class TqdmProgressBarLogger(ProgressBarLogger):
             self.tqdm_bars[bar].update(0)
 
     def callback(self, **kw):
-        items = list(self.bars.items())
-        if items:
-            progress_info = items[-1][-1]
-            print(progress_info["index"] / progress_info["total"] * 100)
+        # items = list(self.bars.items())
+        # if items:
+        #     progress_info = items[-1][-1]
+        #     # print(progress_info["index"] / progress_info["total"] * 100)
         if self.print_messages and ('message' in kw) and kw['message']:
             if self.notebook:
                 print(kw['message'])
             else:
                 self.tqdm.write(kw['message'])
+
 
 class RqWorkerProgressLogger:
     def __init__(self, job):
@@ -364,30 +370,34 @@ class RqWorkerProgressLogger:
         self.job.meta['progress_data'] = self.state
         self.job.save()
 
+
 class RqWorkerBarLogger(RqWorkerProgressLogger, ProgressBarLogger):
 
     def __init__(self, job, init_state=None, bars=None, ignored_bars=(),
-                 logged_bars='all',  min_time_interval=0):
+                 logged_bars='all', min_time_interval=0):
         RqWorkerProgressLogger.__init__(self, job)
         ProgressBarLogger.__init__(self, init_state=init_state, bars=bars,
                                    ignored_bars=ignored_bars,
                                    logged_bars=logged_bars,
                                    min_time_interval=min_time_interval)
 
+
 class MuteProgressBarLogger(ProgressBarLogger):
 
     def bar_is_ignored(self, bar):
         return True
 
+
 def default_bar_logger(logger, bars=None, ignored_bars=None, logged_bars='all',
-                       min_time_interval=0, ignore_bars_under=0):
+                       min_time_interval=0, ignore_bars_under=0, monitor_callback=None):
     if logger == 'bar':
         return TqdmProgressBarLogger(
             bars=bars,
             ignored_bars=ignored_bars,
             logged_bars=logged_bars,
             min_time_interval=min_time_interval,
-            ignore_bars_under=ignore_bars_under
+            ignore_bars_under=ignore_bars_under,
+            monitor_callback=monitor_callback
         )
     elif logger is None:
         return MuteProgressBarLogger()

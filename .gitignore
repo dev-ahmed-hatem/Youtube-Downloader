@@ -1,6 +1,6 @@
 *.mp4
 *.webm
-/playground/test2.py
+/playground
 /lib/merging.zip
 /lib/merging/imageio_ffmpeg/binaries/
 __pycache__/

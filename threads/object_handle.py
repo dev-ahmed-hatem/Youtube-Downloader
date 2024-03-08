@@ -2,8 +2,9 @@ from http.client import IncompleteRead
 from urllib.error import URLError
 from os.path import basename, dirname, getsize
 from time import sleep
-from time_format import standard_time
+from lib.time_format import standard_time
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from main import MainWindow
 
@@ -12,9 +13,12 @@ from PyQt5.Qt import QThread
 from PyQt5.QtCore import pyqtSignal
 
 # Youtube modules
-from pytube import YouTube, Playlist, Stream
+from lib.pytube import YouTube, Playlist, Stream
 # Subtitle modules
-from subtitle import Subtitle
+from lib.subtitle import Subtitle
+# TODO: only for full version
+# Moviepy modules
+from lib.merging.moviepy.editor import VideoFileClip, AudioFileClip
 
 
 class VideoHandleThread(QThread):
@@ -224,7 +228,7 @@ class DownloadAnalyzerHandle(QThread):
         self.callback = callback
         self.on_progress = True
 
-        self.finished.connect(self.deleteLater)
+        # self.finished.connect(self.deleteLater)
 
     def run(self) -> None:
         delay = 0.2
@@ -253,3 +257,31 @@ class DownloadAnalyzerHandle(QThread):
 
     def stop(self):
         self.on_progress = False
+
+
+class MergeStreamsHandle(QThread):
+    show_status = pyqtSignal(int, int)
+    merging_stat = pyqtSignal(dict)
+    on_error = pyqtSignal()
+
+    def __init__(self, clip_location: str, location: str):
+        super(MergeStreamsHandle, self).__init__()
+        self.clip_location = clip_location
+        self.location = location
+
+    def run(self) -> None:
+        try:
+            audio_clip = AudioFileClip(self.clip_location + " (audio)")
+            video_clip = VideoFileClip(self.clip_location)
+            video_clip = video_clip.set_audio(audio_clip)
+            video_clip.write_videofile(self.location,
+                                       codec='libx264',
+                                       audio_codec='aac',
+                                       verbose=False,
+                                       monitor_callback=self.merging_stat.emit,
+                                       status_callback=self.show_status.emit
+                                       )
+        except Exception as e:
+            print(e)
+            self.on_error.emit()
+            self.finished.emit()
