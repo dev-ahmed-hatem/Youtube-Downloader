@@ -252,10 +252,11 @@ class MainWindow(QMainWindow):
             download_data["quality"] = f"{audio_stream_object.abr} (audio)"
             download_data["size"] = naturalsize(audio_stream_object.filesize)
         download_data["thumbnail"] = current_video["video"].thumbnail_url
-        download_data["subtitle"] = f"subtitle: " \
-                                    f"{self.current_video['subtitle_object'].get_lang_code(subtitle_index - 1)}" \
+        download_data["subtitle_index"] = subtitle_index - 1 \
             if subtitle_index != 0 \
             else "no subtitle"
+        download_data["subtitle_object"] = self.current_video["subtitle_object"]
+
         download_data["stream_type"] = stream_type
         download_data["video_stream_object"] = video_stream_object
         download_data["audio_stream_object"] = audio_stream_object

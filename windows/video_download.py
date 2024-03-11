@@ -4,7 +4,8 @@ from PyQt5.QtGui import QCloseEvent
 
 from load_piximage import load_piximage_from_url
 from threading import Thread
-from pytube import Stream
+from lib.pytube import Stream
+from lib.pytube.helpers import safe_filename
 
 from threads.object_handle import VideoDownloadHandleThread, MergeStreamsHandle
 
@@ -12,6 +13,7 @@ from filesize import naturalsize
 from os.path import basename, dirname, join, exists
 from os import startfile, remove
 from lib.dirs import playground_dir
+from lib.subtitle import Subtitle
 
 # moviepy merging modules
 from lib.merging.moviepy.editor import VideoFileClip, AudioFileClip
@@ -113,8 +115,8 @@ class VideoDownloadWindow(QMainWindow):
         self.current_task
         if current_task is not None:
 
-            print(current_task)
             if current_task["type"] == "video" or current_task["type"] == "audio":
+                # handling stream downloading whether audio or video stream
                 if self.download_data["stream_type"] == "unmerged":
                     location = join(playground_dir, basename(self.download_data["location"])) + (
                         " (audio)" if current_task["type"] == "audio" else "")
@@ -125,12 +127,26 @@ class VideoDownloadWindow(QMainWindow):
                                      file_path=location,
                                      stream_type=current_task["type"])
             else:
+                # handling merging
                 clip_location = join(playground_dir, basename(self.download_data["location"]))
                 self.cancel_btn.setEnabled(False)
                 self.pause_resume_btn.setEnabled(False)
                 self.merge_streams(clip_location, self.download_data["location"])
 
         else:
+            if self.download_data["subtitle_index"] != "no subtitle":
+                self.cancel_btn.setEnabled(False)
+                self.pause_resume_btn.setEnabled(False)
+                self.statusBar().showMessage("Downloading subtitle ..")
+                stream_type = "audio" if self.download_data["stream_type"] == "audio" else "video"
+                Thread(target=self.download_subtuitle,
+                       kwargs={
+                           "subtitle": self.download_data["subtitle_object"],
+                           "index": self.download_data["subtitle_index"],
+                           "stream_object": self.download_data[f"{stream_type}_stream_object"]
+                       },
+                       daemon=True).start()
+            self.statusBar().showMessage("All tasks finished")
             self.on_tasks_finished()
 
     def next_task(self):
@@ -154,7 +170,6 @@ class VideoDownloadWindow(QMainWindow):
         self.download_handle.download_stat.connect(self.display_download_stat)
         self.download_handle.analyzer.completed.connect(self.next_task)
         self.download_handle.on_error.connect(self.on_error)
-        self.download_handle.finished.connect(lambda: self.statusBar().showMessage("Downloading finished"))
         self.download_handle.start()
         self.statusBar().showMessage(f"downloading {stream_type} ..")
 
@@ -163,11 +178,22 @@ class VideoDownloadWindow(QMainWindow):
         self.merge_handle.merging_stat.connect(self.display_merging_stat)
         self.merge_handle.show_status.connect(self.show_merging_status)
         self.merge_handle.finished.connect(lambda: self.remove_clips(clip_location))
-        self.merge_handle.finished.connect(lambda: self.statusBar().showMessage("All tasks finished"))
         self.merge_handle.finished.connect(self.next_task)
         self.merge_handle.on_error.connect(self.on_error)
         self.merge_handle.start()
         self.statusBar().showMessage("Performing merging tasks .. DO NOT CLOSE THE PROGRAM!")
+
+    def download_subtuitle(self, subtitle: Subtitle, index: int, stream_object: Stream):
+        file_name = f"{safe_filename(stream_object.title)} - {subtitle.get_lang_code(index=index)}.srt"
+        file_path = join(dirname(self.download_data["location"]), file_name)
+        try:
+            text = subtitle.generate_srt_format(index=index)
+            with open(file_path, "w", encoding="utf-8") as srt:
+                srt.write(text)
+                srt.close()
+        except Exception as e:
+            print(e)
+            self.statusBar().showMessage("Couldn't download subtitle!")
 
     def remove_clips(self, clip_location):
         if exists(clip_location):

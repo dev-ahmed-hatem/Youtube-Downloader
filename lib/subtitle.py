@@ -1,4 +1,5 @@
 from youtube_transcript_api import YouTubeTranscriptApi
+from youtube_transcript_api.formatters import SRTFormatter
 
 
 class Subtitle:
@@ -29,15 +30,7 @@ class Subtitle:
         else:
             yt_format = self.translatable. \
                 translate(self.translation_languages[index - len(self.transcripts)]['language_code']).fetch()
-        srt_format = ""
-        counter = 1
-        for component in yt_format:
-            srt_format += f"{counter}\n"
-            srt_format += f"{Subtitle.standard_time(component['start'])} --> " \
-                          f"{Subtitle.standard_time(component['start'] + component['duration'] - 0.2)}\n"
-            srt_format += f"{component['text']}\n"
-            srt_format += f"\n"
-            counter += 1
+        srt_format = SRTFormatter().format_transcript(yt_format)
 
         return srt_format
 
@@ -48,11 +41,3 @@ class Subtitle:
             transcript = self.translatable. \
                 translate(self.translation_languages[index - len(self.transcripts)]['language_code']).language
         return transcript
-
-    @staticmethod
-    def standard_time(seconds):
-        currentSeconds = float(int((seconds % 60) * (10 ** 3)) / (10 ** 3))
-        minutes = int(seconds // 60)
-        currentMinutes = int(minutes % 60)
-        hours = int(minutes // 60)
-        return f"{str(hours).zfill(2)}:{str(currentMinutes).zfill(2)}:{str(currentSeconds).zfill(2).replace('.', ',')}"
