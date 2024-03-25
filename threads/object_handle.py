@@ -1,7 +1,9 @@
 from http.client import IncompleteRead
 from urllib.error import URLError
-from os.path import basename, dirname, getsize
+from os.path import basename, dirname, getsize, join
 from time import sleep
+
+from lib.load_piximage import load_piximage_from_url
 from lib.time_format import standard_time
 from typing import TYPE_CHECKING
 
@@ -14,6 +16,7 @@ from PyQt5.QtCore import pyqtSignal
 
 # Youtube modules
 from lib.pytube import YouTube, Playlist, Stream
+from lib.pytube.helpers import safe_filename
 # Subtitle modules
 from lib.subtitle import Subtitle
 # TODO: only for full version
@@ -157,6 +160,8 @@ class PlaylistHandleThread(QThread):
 
 
 class CustomizingHandleThread(QThread):
+    success = pyqtSignal()
+
     def __init__(self, playlist, parent: "MainWindow"):
         super(CustomizingHandleThread, self).__init__()
         self.parent_ = parent
@@ -169,11 +174,103 @@ class CustomizingHandleThread(QThread):
                                                 "video_data": {
                                                     "video_id": video.video_id,
                                                     "title": video.title,
-                                                    "length": video.length,
-                                                    "thumbnail": video.thumbnail_url
+                                                    "author": video.author,
+                                                    "length": standard_time(video.length),
+                                                    "thumbnail": video.thumbnail_url,
+                                                    "image": None
                                                 }}
         self.parent_.current_playlist["download_data"] = self.videos_widgets
-        self.finished.emit()
+        self.success.emit()
+
+
+class PlaylistThumbnailsHandle(QThread):
+    def __init__(self, download_data: dict):
+        super(PlaylistThumbnailsHandle, self).__init__()
+        self.download_data = download_data
+
+    def run(self) -> None:
+        for video in self.download_data:
+            video = self.download_data[video]
+            url = video["video_data"]["thumbnail"]
+            image = load_piximage_from_url(url)
+            video["video_data"]["image"] = image
+            if image:
+                video["template"].img.setPixmap(image.scaledToWidth(130))
+                video["item"].img.setPixmap(image.scaledToWidth(130))
+            else:
+                video["template"].img.setStyleSheet(video["template"].img.styleSheet() + "color: #f32013;")
+                video["template"].img.setText("Failed!")
+                video["item"].img.setStyleSheet(video["template"].img.styleSheet() + "color: #f32013;")
+                video["item"].img.setText("Failed!")
+
+
+class SelectStreamHandleThread(QThread):
+    on_selected = pyqtSignal(dict)
+    on_error = pyqtSignal(Exception)
+
+    def __init__(self, current_task: dict, video_object: YouTube, location: str, prefix: str = None, parent=None):
+        super(SelectStreamHandleThread, self).__init__()
+        self.current_task = current_task
+        self.video_object = video_object
+        self.location = location
+        self.prefix = prefix
+        self.parent_ = parent
+
+    def run(self) -> None:
+        try:
+            if self.current_task["type"] == "video":
+                streams = self.video_object.streams.filter(progressive=True)
+            else:
+                streams = self.video_object.streams.filter(only_audio=True)
+            if len(streams) > 1:
+                if self.current_task["quality"] == "normal":
+                    stream = streams[-1]
+                else:
+                    stream = streams[-2]
+            else:
+                stream = streams[0]
+
+            if self.prefix:
+                filename = f"{self.prefix} - {stream.default_filename}"
+            else:
+                filename = stream.default_filename
+
+            location = join(self.location, filename)
+
+            self.on_selected.emit({
+                "stream": stream,
+                "location": location,
+                "title": stream.title
+            })
+            # self.on_selected.emit(stream, location, stream.title)
+
+        except Exception as e:
+            print(e)
+            self.on_error.emit(e)
+
+
+class DownloadSubtitleHandleThread(QThread):
+    on_downloaded = pyqtSignal()
+    on_error = pyqtSignal(str)
+
+    def __init__(self, subtitle: Subtitle, title: str, location: str, index: int):
+        super(DownloadSubtitleHandleThread, self).__init__()
+        self.subtitle: Subtitle = subtitle
+        self.title = title
+        self.index = index
+        self.location = location
+
+    def run(self) -> None:
+        file_name = f"{safe_filename(self.title)} - {self.subtitle.get_lang_code(index=self.index)}.srt"
+        file_path = join(self.location, file_name)
+        try:
+            text = self.subtitle.generate_srt_format(index=self.index)
+            with open(file_path, "w", encoding="utf-8") as srt:
+                srt.write(text)
+                srt.close()
+            self.on_downloaded.emit()
+        except Exception as e:
+            print(e)
 
 
 class VideoDownloadHandleThread(QThread):
@@ -196,7 +293,8 @@ class VideoDownloadHandleThread(QThread):
 
         self.on_download_start.connect(self.analyzer.start)
         self.analyzer.finished.connect(self.stop)
-        # self.analyzer.finished.connect(self.deleteLater)
+        self.finished.connect(self.analyzer.quit)
+        self.finished.connect(self.analyzer.wait)
 
     def run(self) -> None:
         self.stream.download_state = True
@@ -227,8 +325,6 @@ class DownloadAnalyzerHandle(QThread):
         self.lastSize = 0
         self.callback = callback
         self.on_progress = True
-
-        # self.finished.connect(self.deleteLater)
 
     def run(self) -> None:
         delay = 0.2

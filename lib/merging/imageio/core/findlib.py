@@ -12,7 +12,7 @@ import ctypes
 
 LOCALDIR = os.path.abspath(os.path.dirname(__file__))
 
-# Flag that can be patched / set to True to disable loading non-system libs
+# Flag that can be patched / set to True to disable loading non-system lib
 SYSTEM_LIBS_ONLY = False
 
 
@@ -145,7 +145,7 @@ def load_lib(exact_lib_names, lib_names, lib_dirs=None):
     if the_lib is None:
         if errors:
             # No library loaded, and load-errors reported for some
-            # candidate libs
+            # candidate lib
             err_txt = ["%s:\n%s" % (lib, str(e)) for lib, e in errors]
             msg = (
                 "One or more %s libraries were found, but "

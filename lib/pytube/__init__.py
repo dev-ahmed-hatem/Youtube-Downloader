@@ -9,6 +9,7 @@ __license__ = "The Unlicense (Unlicense)"
 __js__ = None
 __js_url__ = None
 
+import urllib
 from .version import __version__
 from .streams import Stream
 from .captions import Caption

@@ -1,4 +1,4 @@
-# import additional libs
+# import additional lib
 from lib.pytube import YouTube
 from lib.pytube.exceptions import RegexMatchError
 from lib.pytube.helpers import safe_filename
@@ -7,12 +7,15 @@ from lib.streams_sorting import justify_streams
 from lib.time_format import standard_time
 
 # import threading modules
-from threads.object_handle import VideoHandleThread, SubtitleHandleThread, PlaylistHandleThread, CustomizingHandleThread
+from threads.object_handle import VideoHandleThread, SubtitleHandleThread, PlaylistHandleThread, \
+    CustomizingHandleThread, PlaylistThumbnailsHandle
 
 # import different windows
-from windows.customize_playlist import CustomizingWindow
+from windows.customize_playlist import CustomizingWindow, load_customized_data
 from windows.video_download import VideoDownloadWindow
 from windows.video_template import VideoTemplate
+from windows.playlist_download import PlaylistDownloadWindow
+from windows.playlist_item_template import PlaylistItemTemplate
 
 # import necessary modules
 from os import path
@@ -27,10 +30,12 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super(MainWindow, self).__init__()
         # define threads handlers attributes
+        # TODO: collect them in a dictionary attribute
         self.video_handle_thread = None
         self.subtitle_handle_thread = None
         self.playlist_handle_thread = None
         self.customizing_handle_thread = None
+        self.playlist_thumbnails_handle_thread = None
 
         # define video / playlist attributes
         self.current_video = {}
@@ -39,6 +44,7 @@ class MainWindow(QMainWindow):
         # windows attributes
         self.customize_window = None
         self.video_download_window = None
+        self.playlist_download_window = None
 
         self.reset_gui()
 
@@ -58,6 +64,8 @@ class MainWindow(QMainWindow):
             self.subtitle_handle_thread.terminate()
         if self.customizing_handle_thread:
             self.customizing_handle_thread.terminate()
+        if self.playlist_thumbnails_handle_thread:
+            self.playlist_thumbnails_handle_thread.terminate()
 
         # resetting video tab
         self.video_save_location.setEnabled(False)
@@ -105,6 +113,7 @@ class MainWindow(QMainWindow):
         self.playlist_quality.currentIndexChanged.connect(self.change_playlist_quality)
         self.playlist_reset_b.clicked.connect(lambda: self.reset_gui(True))
         self.playlist_customize_b.clicked.connect(self.customize_playlist)
+        self.playlist_download_b.clicked.connect(self.fetch_playlist_download_data)
 
     # specific for video handling
     def get_video(self):
@@ -262,7 +271,7 @@ class MainWindow(QMainWindow):
         download_data["audio_stream_object"] = audio_stream_object
 
         # instantiate downloading window
-        self.video_download_window = VideoDownloadWindow(self, download_data)
+        self.video_download_window = VideoDownloadWindow(download_data, self)
         self.hide()
         self.video_download_window.show()
         self.video_download_window.define_tasks()
@@ -293,7 +302,7 @@ class MainWindow(QMainWindow):
         self.approx_size.setText("calculating ..")
         self.get_playlist_size()
         self.collect_playlist_videos_data()
-        self.statusBar().showMessage(self.current_playlist["playlist_title"])
+        self.statusBar().showMessage("preparing videos to download ..")
         self.playlist_count.setText(str(self.current_playlist["playlist_count"]))
         self.define_playlist_filename()
         self.playlist_save_location.setText(self.current_playlist["playlist_location"])
@@ -302,7 +311,7 @@ class MainWindow(QMainWindow):
         self.playlist_videos_radio.setChecked(True)
         self.playlist_quality.setEnabled(True)
         self.playlist_reset_b.setEnabled(True)
-        self.playlist_download_b.setEnabled(True)
+        self.numbered.setEnabled(True)
 
         self.playlist_quality.addItem("Normal")
         self.playlist_quality.addItem("Low")
@@ -343,23 +352,37 @@ class MainWindow(QMainWindow):
             self.display_playlist_size(self.current_playlist["playlist_mul_factor"][mul_factor])
         except Exception as e:
             print(e)
-            pass
 
     def collect_playlist_videos_data(self):
         self.customizing_handle_thread = CustomizingHandleThread(self.current_playlist["playlist"], self)
-        self.customizing_handle_thread.finished.connect(self.prepare_video_templates)
-        self.customizing_handle_thread.finished.connect(lambda: self.playlist_customize_b.setEnabled(True))
+        self.customizing_handle_thread.success.connect(self.prepare_video_templates)
+        self.customizing_handle_thread.success.connect(self.collect_playlist_videos_thumbnails)
+        self.customizing_handle_thread.success.connect(self.playlist_ready)
         self.customizing_handle_thread.start()
 
+    def playlist_ready(self):
+        self.playlist_customize_b.setEnabled(True)
+        self.playlist_download_b.setEnabled(True)
+        self.statusBar().showMessage(f"{self.current_playlist['playlist_title']} is ready to download")
+
+    def collect_playlist_videos_thumbnails(self):
+        self.playlist_thumbnails_handle_thread = PlaylistThumbnailsHandle(self.current_playlist["download_data"])
+        self.playlist_thumbnails_handle_thread.start()
+
     def prepare_video_templates(self):
+        download_data = self.current_playlist["download_data"]
         try:
-            for video in self.current_playlist["download_data"]:
-                self.current_playlist["download_data"][video]["template"] = VideoTemplate(
-                    self.current_playlist["download_data"][video]["video_data"]
+            for index, video in enumerate(download_data, 1):
+                download_data[video]["template"] = VideoTemplate(
+                    download_data[video]["video_data"]
                 )
+                download_data[video]["item"] = PlaylistItemTemplate(
+                video_data=download_data[video]["video_data"],
+                order=index
+            )
             self.customize_window = CustomizingWindow(
                 self.current_playlist["playlist_title"],
-                self.current_playlist["download_data"],
+                download_data,
             )
             self.customize_window.playlist_custom_data.connect(self.receive_custom_download_data)
         except KeyError:
@@ -368,15 +391,14 @@ class MainWindow(QMainWindow):
     def customize_playlist(self):
         if self.current_playlist["customized"]:
             for video in self.current_playlist["download_data"]:
-                self.customize_window.load_saved_changes(
-                    template=self.current_playlist["download_data"][video]["template"],
-                    customized_data=self.current_playlist["download_data"][video]["customized_data"]
-                )
+                load_customized_data(template=self.current_playlist["download_data"][video]["template"],
+                                     customized_data=self.current_playlist["download_data"][video]["customized_data"])
         else:
             self.customize_window.set_defaults()
         self.customize_window.check_selection()
         self.customize_window.exec()
 
+        # notify the user in main window that the playlist is customized
         if self.current_playlist["customized"] and not self.current_playlist["ui_changed"]:
             self.playlist_type_group.deleteLater()
             self.playlist_quality.deleteLater()
@@ -387,6 +409,34 @@ class MainWindow(QMainWindow):
             self.grid_layout.addWidget(label1, 2, 1, 1, 2)
             self.grid_layout.addWidget(label2, 3, 1, 1, 2)
             self.current_playlist["ui_changed"] = True
+
+    def fetch_playlist_download_data(self):
+        # collect the data selected for the playlist
+        save_location = self.playlist_save_location.text()
+        if save_location == "":
+            self.show_message(QMessageBox.Warning, "Choose save location", False)
+            return
+        customized = self.current_playlist["customized"]
+        download_data = {
+            "url": self.playlist_url.text(),
+            "location": save_location,
+            "numbered": self.numbered.isChecked(),
+            "playlist": self.current_playlist["playlist"],
+            "videos_data": self.current_playlist["download_data"]
+        }
+        if not customized:
+            download_data["stream_type"] = "video" if self.playlist_videos_radio.isChecked() else "audio"
+            download_data["quality"] = "normal" if self.playlist_quality.currentIndex() == 0 else "low"
+
+        self.playlist_download_window = PlaylistDownloadWindow(download_data=download_data,
+                                                               customized=customized,
+                                                               parent=self)
+        self.playlist_download_window.show()
+        self.playlist_download_window.manage_tasks()
+        self.hide()
+
+    def prepare_playlist_download_window(self):
+        self.playlist_download_window = None
 
     def receive_custom_download_data(self, data):
         self.current_playlist["download_data"] = data

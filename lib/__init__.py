@@ -1,4 +1,4 @@
-# add additional libs to path
+# add additional lib to path
 import sys
 from os import path
 

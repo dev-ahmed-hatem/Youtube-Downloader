@@ -1,18 +1,18 @@
-# add additional libs to path
+# add additional lib to path
 import sys
 
-sys.path.append("./lib")
-sys.path.append("./lib/pytube")
-from lib.pytube import Playlist, YouTube
+sys.path.append("lib")
+sys.path.append("lib/pytube")
+from lib.pytube import Playlist, YouTube, Stream
 from lib.filesize import naturalsize
-from subtitle import *
 
-id = YouTube("https://www.youtube.com/watch?v=HFWQdGn5DaU").video_id
-subtitle_object = Subtitle(video_id=id)
+# id = YouTube("https://www.youtube.com/watch?v=HFWQdGn5DaU")
+
+
+print('123456\rabcde')
+# subtitle_object = Subtitle(video_id=id)
 # print(subtitle_object.get_subtitles())
-print(subtitle_object.generate_srt_format(27))
-
-
+# print(subtitle_object.generate_srt_format(27))
 
 
 # print(videoStreams[1].get_file_path())
@@ -43,6 +43,7 @@ def playlist_approx_size(playlist: Playlist):
         size += video_size
         print(naturalsize(video_size))
     print(naturalsize(size))
+
 
 def videoStreams(playlist: Playlist):
     first_video = playlist.videos[0].streams.filter(progressive=True)

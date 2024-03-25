@@ -21,18 +21,3 @@ if __name__ == "__main__":
     window = MainWindow()
     window.show()
     app.exec()
-
-
-def print_dict(data: dict):
-    print(data)
-
-
-def merge():
-    from lib.merging.moviepy.editor import VideoFileClip, AudioFileClip
-    audio = AudioFileClip("./playground/b.webm")
-    video = VideoFileClip("./playground/a.mp4")
-
-    video = video.set_audio(audio)
-    video.write_videofile("./playground/result2.mp4", codec='libx264', audio_codec='aac', verbose=False,
-                          monitor_callback=print_dict)
-    # video.write_video

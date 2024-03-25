@@ -1,8 +1,6 @@
 from PyQt5.QtCore import Qt, pyqtSignal
-from PyQt5.QtWidgets import QDialog, QWidget, QComboBox
-from PyQt5.uic import loadUi
-
-from threading import Thread
+from PyQt5.QtWidgets import QDialog, QComboBox
+from PyQt5uic import loadUi
 
 
 class CustomizingWindow(QDialog):
@@ -19,7 +17,6 @@ class CustomizingWindow(QDialog):
             template = self.videos_widgets[video]["template"]
             template.check.stateChanged.connect(self.check_selection)
             self.videos_area.addWidget(template)
-        Thread(target=self.load_thumbnails, daemon=True).start()
 
     def key_bindings(self):
         self.select_all.clicked.connect(lambda: self.toggle_select_all(self.select_all.isChecked()))
@@ -29,23 +26,6 @@ class CustomizingWindow(QDialog):
         self.low.clicked.connect(lambda: self.change_quality(1))
         self.default_button.clicked.connect(self.set_defaults)
         self.save_button.clicked.connect(self.fetch_playlist_data)
-
-    @staticmethod
-    def load_saved_changes(template: QWidget, customized_data: dict):
-        template.check.setChecked(customized_data["include"])
-        if customized_data["type"] == "video":
-            template.video_radio.setChecked(True)
-            template.audio_radio.setChecked(False)
-        else:
-            template.video_radio.setChecked(False)
-            template.audio_radio.setChecked(True)
-        template.quality.setCurrentIndex(0 if customized_data["quality"] == "normal" else 1)
-        subtitle_combobox = template.findChild(QComboBox, "subtitles")
-        if customized_data["subtitle"] == "no subtitle":
-            if subtitle_combobox:
-                subtitle_combobox.setCurrentIndex(0)
-        else:
-            subtitle_combobox.setCurrentIndex(customized_data["subtitle_index"])
 
     def set_defaults(self):
         self.select_all.setChecked(True)
@@ -76,9 +56,18 @@ class CustomizingWindow(QDialog):
         self.select_all.setChecked(selected == len(self.videos_widgets.keys()))
         self.save_button.setEnabled(bool(selected))
 
-    def load_thumbnails(self):
+    def update_thumbnails(self):
         for video in self.videos_widgets:
-            self.videos_widgets[video]["template"].display_thumbnail()
+            video = self.videos_widgets[video]
+            image = video["video_data"]["image"]
+            if not video["template"].is_thumbnail_displayed:
+                if image and image != "failed":
+                    video["template"].img.setPixmap(image.scaledToWidth(130))
+                    video["template"].is_thumbnail_displayed = True
+                elif image == "failed":
+                    video["template"].img.setStyleSheet(video["template"].img.styleSheet() + "color: #f32013;")
+                    video["template"].img.setText("Failed!")
+                    video["template"].is_thumbnail_displayed = True
 
     def fetch_playlist_data(self):
         for video in self.videos_widgets:
@@ -89,12 +78,30 @@ class CustomizingWindow(QDialog):
                 subtitle = subtitle_combobox.currentIndex()
             self.videos_widgets[video]["customized_data"] = {
                 "include": video_template.check.isChecked(),
-                "type": "video" if video_template.video_radio.isChecked() else "audio",
+                "stream_type": "video" if video_template.video_radio.isChecked() else "audio",
                 "quality": "normal" if video_template.quality.currentIndex() == 0 else "low",
                 "subtitle": "no subtitle"
                 if subtitle == 0
-                else video_template.subtitle_object.get_lang_code(subtitle - 1),
-                "subtitle_index": subtitle
+                else video_template.video["subtitle"],
+                "subtitle_index": subtitle - 1
             }
         self.playlist_custom_data.emit(self.videos_widgets)
         self.hide()
+
+
+# noinspection PyUnresolvedReferences
+def load_customized_data(template, customized_data: dict):
+    template.check.setChecked(customized_data["include"])
+    if customized_data["stream_type"] == "video":
+        template.video_radio.setChecked(True)
+        template.audio_radio.setChecked(False)
+    else:
+        template.video_radio.setChecked(False)
+        template.audio_radio.setChecked(True)
+    template.quality.setCurrentIndex(0 if customized_data["quality"] == "normal" else 1)
+    subtitle_combobox = template.findChild(QComboBox, "subtitles")
+    if customized_data["subtitle"] == "no subtitle":
+        if subtitle_combobox:
+            subtitle_combobox.setCurrentIndex(0)
+    else:
+        subtitle_combobox.setCurrentIndex(customized_data["subtitle_index"] + 1)

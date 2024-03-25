@@ -20,7 +20,7 @@ from lib.merging.moviepy.editor import VideoFileClip, AudioFileClip
 
 
 class VideoDownloadWindow(QMainWindow):
-    def __init__(self, parent, download_data: dict):
+    def __init__(self, download_data: dict, parent):
         super(VideoDownloadWindow, self).__init__()
         loadUi("./gui/video download", self)
         self.download_data = download_data
@@ -112,7 +112,6 @@ class VideoDownloadWindow(QMainWindow):
 
     def manage_tasks(self):
         current_task = self.tasks.get(self.current_task)
-        self.current_task
         if current_task is not None:
 
             if current_task["type"] == "video" or current_task["type"] == "audio":
@@ -127,7 +126,7 @@ class VideoDownloadWindow(QMainWindow):
                                      file_path=location,
                                      stream_type=current_task["type"])
             else:
-                # handling merging
+                # handle merging
                 clip_location = join(playground_dir, basename(self.download_data["location"]))
                 self.cancel_btn.setEnabled(False)
                 self.pause_resume_btn.setEnabled(False)
@@ -215,7 +214,7 @@ class VideoDownloadWindow(QMainWindow):
             self.statusBar().showMessage("download paused")
 
     def closeEvent(self, a0: QCloseEvent) -> None:
-        if self.pause:
+        if not self.pause:
             self.pause_resume()
         a0.accept()
 
