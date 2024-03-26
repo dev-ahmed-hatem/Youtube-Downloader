@@ -1,7 +1,7 @@
 """Implements the generic progress logger class, and the ProgressBar class.
 """
 
-from lib.merging.tqdm import tqdm, tqdm_notebook
+from merging.tqdm import tqdm, tqdm_notebook
 from collections import OrderedDict
 import time
 

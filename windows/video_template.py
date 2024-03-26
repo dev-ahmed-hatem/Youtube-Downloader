@@ -1,11 +1,9 @@
 from PyQt5.QtWidgets import QWidget, QComboBox
 from PyQt5uic import loadUi
-from lib.load_piximage import load_piximage_from_url
 
 # Other modules
 from threading import Thread
 from lib.subtitle import Subtitle
-from lib.time_format import standard_time
 
 
 class VideoTemplate(QWidget):

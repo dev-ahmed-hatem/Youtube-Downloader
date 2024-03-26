@@ -137,10 +137,10 @@ class Comparable(object):
 
 class ObjectWrapper(object):
     def __getattr__(self, name):
-        return getattr(self._wrapped, name)
+        return '' # getattr(self._wrapped, name)
 
     def __setattr__(self, name, value):
-        return setattr(self._wrapped, name, value)
+        return '' # setattr(self._wrapped, name, value)
 
     def wrapper_getattr(self, name):
         """Actual `self.getattr` rather than self._wrapped.getattr"""

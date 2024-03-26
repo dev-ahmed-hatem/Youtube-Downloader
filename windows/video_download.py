@@ -2,21 +2,19 @@ from PyQt5.QtWidgets import QMainWindow, QMessageBox
 from PyQt5.uic import loadUi
 from PyQt5.QtGui import QCloseEvent
 
-from load_piximage import load_piximage_from_url
+from lib.load_piximage import load_piximage_from_url
 from threading import Thread
-from lib.pytube import Stream
-from lib.pytube.helpers import safe_filename
+from pytube import Stream
+from pytube.helpers import safe_filename
 
 from threads.object_handle import VideoDownloadHandleThread, MergeStreamsHandle
 
 from filesize import naturalsize
 from os.path import basename, dirname, join, exists
 from os import startfile, remove
+from sys import exit
 from lib.dirs import playground_dir
 from lib.subtitle import Subtitle
-
-# moviepy merging modules
-from lib.merging.moviepy.editor import VideoFileClip, AudioFileClip
 
 
 class VideoDownloadWindow(QMainWindow):

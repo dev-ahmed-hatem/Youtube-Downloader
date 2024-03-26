@@ -10,7 +10,7 @@ import tempfile
 import warnings
 
 import numpy as np
-from lib.merging import proglog
+from merging import proglog
 from imageio import imread, imsave
 
 from ..Clip import Clip

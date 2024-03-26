@@ -2,6 +2,7 @@ from http.client import IncompleteRead
 from urllib.error import URLError
 from os.path import basename, dirname, getsize, join
 from time import sleep
+from traceback import format_exc
 
 from lib.load_piximage import load_piximage_from_url
 from lib.time_format import standard_time
@@ -15,13 +16,13 @@ from PyQt5.Qt import QThread
 from PyQt5.QtCore import pyqtSignal
 
 # Youtube modules
-from lib.pytube import YouTube, Playlist, Stream
-from lib.pytube.helpers import safe_filename
+from pytube import YouTube, Playlist, Stream
+from pytube.helpers import safe_filename
 # Subtitle modules
 from lib.subtitle import Subtitle
-# TODO: only for full version
+
 # Moviepy modules
-from lib.merging.moviepy.editor import VideoFileClip, AudioFileClip
+from merging.moviepy.editor import VideoFileClip, AudioFileClip
 
 
 class VideoHandleThread(QThread):
@@ -379,5 +380,7 @@ class MergeStreamsHandle(QThread):
                                        )
         except Exception as e:
             print(e)
+            with open("error.txt", "w") as file:
+                file.write(format_exc())
+                file.close()
             self.on_error.emit()
-            self.finished.emit()

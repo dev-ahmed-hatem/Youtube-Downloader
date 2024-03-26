@@ -1,9 +1,9 @@
 import os
 
-from lib.merging.moviepy.audio.io.AudioFileClip import AudioFileClip
-from lib.merging.moviepy.Clip import Clip
-from lib.merging.moviepy.video.io.ffmpeg_reader import FFMPEG_VideoReader
-from lib.merging.moviepy.video.VideoClip import VideoClip
+from merging.moviepy.audio.io.AudioFileClip import AudioFileClip
+from merging.moviepy.Clip import Clip
+from merging.moviepy.video.io.ffmpeg_reader import FFMPEG_VideoReader
+from merging.moviepy.video.VideoClip import VideoClip
 
 
 class VideoFileClip(VideoClip):

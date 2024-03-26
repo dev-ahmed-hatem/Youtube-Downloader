@@ -3,13 +3,13 @@ import sys
 
 sys.path.append("lib")
 sys.path.append("lib/pytube")
-from lib.pytube import Playlist, YouTube, Stream
+from pytube import Playlist, YouTube, Stream
 from lib.filesize import naturalsize
 
-# id = YouTube("https://www.youtube.com/watch?v=HFWQdGn5DaU")
+video = YouTube("https://www.youtube.com/watch?v=HFWQdGn5DaU")
 
-
-print('123456\rabcde')
+streams = video.streams.filter(only_video=True, subtype="mp4")
+print(streams)
 # subtitle_object = Subtitle(video_id=id)
 # print(subtitle_object.get_subtitles())
 # print(subtitle_object.generate_srt_format(27))

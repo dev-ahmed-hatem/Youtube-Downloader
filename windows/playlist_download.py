@@ -3,13 +3,14 @@ from PyQt5uic import loadUi
 from PyQt5.QtGui import QCloseEvent
 
 from lib.load_piximage import load_piximage_from_url
-from lib.pytube.streams import Stream
+from pytube.streams import Stream
 from lib.filesize import naturalsize
 from threads.object_handle import VideoDownloadHandleThread, SelectStreamHandleThread, DownloadSubtitleHandleThread
 from threading import Thread
 
 from os.path import join
 from os import startfile
+from sys import exit
 
 
 class PlaylistDownloadWindow(QMainWindow):

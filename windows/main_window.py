@@ -1,7 +1,7 @@
 # import additional lib
-from lib.pytube import YouTube
-from lib.pytube.exceptions import RegexMatchError
-from lib.pytube.helpers import safe_filename
+from pytube import YouTube
+from pytube.exceptions import RegexMatchError
+from pytube.helpers import safe_filename
 from lib.filesize import naturalsize
 from lib.streams_sorting import justify_streams
 from lib.time_format import standard_time
@@ -47,6 +47,7 @@ class MainWindow(QMainWindow):
         self.playlist_download_window = None
 
         self.reset_gui()
+        self.statusBar().showMessage("Developed and Built by Ahmed Hatem")
 
     # specific for gui actions
     def reset_gui(self, playlist_tab=False):
@@ -89,7 +90,6 @@ class MainWindow(QMainWindow):
 
     def disable_gui(self):
         self.video_get_b.setEnabled(False)
-        # self.video_reset_b.setEnabled(False)
         self.video_url.setEnabled(False)
         self.playlist_get_b.setEnabled(False)
         self.playlist_reset_b.setEnabled(False)
@@ -153,6 +153,7 @@ class MainWindow(QMainWindow):
         self.video_download_b.setEnabled(True)
 
     def define_stream_filename(self):
+        # especially with the filename
         current = self.video_quality.currentIndex()
         if current == -1:
             return
@@ -176,6 +177,7 @@ class MainWindow(QMainWindow):
         self.video_save_location.setText(file_location)
 
     def show_streams(self, streams_type: str):
+        # handle both video and audio streams of the current video
         counter = 0
         items = {}
         if streams_type == "video":
@@ -187,7 +189,7 @@ class MainWindow(QMainWindow):
                 }
                 counter += 1
             if dirs.ffmpeg_script():
-                video_streams = self.current_video["streams"].filter(only_video=True)
+                video_streams = self.current_video["streams"].filter(only_video=True, subtype="mp4")
                 audio_streams = self.current_video["streams"].filter(only_audio=True)
                 unmerged = justify_streams(audio_streams, video_streams)
                 for stream in unmerged:

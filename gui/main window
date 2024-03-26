@@ -25,6 +25,10 @@
   <property name="windowTitle">
    <string>Youtube Downloader</string>
   </property>
+  <property name="windowIcon">
+   <iconset>
+    <normaloff>../../../video-download.ico</normaloff>../../../video-download.ico</iconset>
+  </property>
   <property name="styleSheet">
    <string notr="true">QLabel, QCheckBox {
 font-size: 17px;

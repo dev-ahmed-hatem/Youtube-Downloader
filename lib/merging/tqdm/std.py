@@ -452,8 +452,10 @@ class tqdm(Comparable):
             getattr(sys.stdout, 'flush', lambda: None)()
 
         def fp_write(s):
-            fp.write(str(s))
-            fp_flush()
+            pass
+            # if fp:
+            #     fp.write(str(s))
+            #     fp_flush()
 
         last_len = [0]
 
@@ -731,8 +733,10 @@ class tqdm(Comparable):
         fp = file if file is not None else sys.stdout
         with cls.external_write_mode(file=file, nolock=nolock):
             # Write the message
-            fp.write(s)
-            fp.write(end)
+            pass
+            # if fp:
+            #     fp.write(s)
+            #     fp.write(end)
 
     @classmethod
     @contextmanager
@@ -903,7 +907,7 @@ class tqdm(Comparable):
                         " not supported by" +
                         " `(DataFrame|Series|GroupBy).progress_apply`." +
                         " Use keyword arguments instead.",
-                        fp_write=getattr(t.fp, 'write', sys.stderr.write))
+                        fp_write=None)  # getattr(t.fp, 'write', sys.stderr.write))
 
                 try:  # pandas>=1.3.0
                     from pandas.core.common import is_builtin_func
@@ -1014,7 +1018,7 @@ class tqdm(Comparable):
                 TqdmDeprecationWarning(
                     "`nested` is deprecated and automated.\n"
                     "Use `position` instead for manual control.\n",
-                    fp_write=getattr(file, 'write', sys.stderr.write))
+                    fp_write=None)  # getattr(file, 'write', sys.stderr.write))
                 if "nested" in kwargs else
                 TqdmKeyError("Unknown argument(s): " + str(kwargs)))
 
@@ -1296,7 +1300,9 @@ class tqdm(Comparable):
 
         # annoyingly, _supports_unicode isn't good enough
         def fp_write(s):
-            self.fp.write(str(s))
+            pass
+            # if self.fp:
+            #     self.fp.write(str(s))
 
         try:
             fp_write('')
@@ -1329,7 +1335,8 @@ class tqdm(Comparable):
         if pos < (self.nrows or 20):
             self.moveto(pos)
             self.sp('')
-            self.fp.write('\r')  # place cursor back at the beginning of line
+            if self.fp:
+                self.fp.write('\r')  # place cursor back at the beginning of line
             self.moveto(-pos)
         if not nolock:
             self._lock.release()
@@ -1452,7 +1459,8 @@ class tqdm(Comparable):
 
     def moveto(self, n):
         # TODO: private method
-        self.fp.write('\n' * n + _term_move_up() * -n)
+        if self.fp:
+            self.fp.write('\n' * n + _term_move_up() * -n)
         getattr(self.fp, 'flush', lambda: None)()
 
     @property
@@ -1500,7 +1508,7 @@ class tqdm(Comparable):
             raise TqdmDeprecationWarning(
                 "Please use `tqdm.gui.tqdm(...)`"
                 " instead of `tqdm(..., gui=True)`\n",
-                fp_write=getattr(self.fp, 'write', sys.stderr.write))
+                fp_write=None)  # getattr(self.fp, 'write', sys.stderr.write))
 
         if pos:
             self.moveto(pos)

@@ -13,6 +13,7 @@ def ffmpeg_script() -> bool:
     return True
 
 
+# create default download folders if not exist
 def prepare_download_location():
     global videos_dir, audios_dir, playlists_dir
     downloads_folder = path.join(path.expanduser("~"), "Downloads")

@@ -1,0 +1,109 @@
+{
+ "version": "auto-py-to-exe-configuration_v1",
+ "pyinstallerOptions": [
+  {
+   "optionDest": "noconfirm",
+   "value": true
+  },
+  {
+   "optionDest": "filenames",
+   "value": "E:/Pro/Work/downloader/new/codes/main.py"
+  },
+  {
+   "optionDest": "onefile",
+   "value": false
+  },
+  {
+   "optionDest": "console",
+   "value": false
+  },
+  {
+   "optionDest": "icon_file",
+   "value": "E:/Pro/Work/downloader/video-download.ico"
+  },
+  {
+   "optionDest": "name",
+   "value": "Youtube Video Downloader 2.1"
+  },
+  {
+   "optionDest": "clean_build",
+   "value": false
+  },
+  {
+   "optionDest": "strip",
+   "value": false
+  },
+  {
+   "optionDest": "noupx",
+   "value": false
+  },
+  {
+   "optionDest": "disable_windowed_traceback",
+   "value": false
+  },
+  {
+   "optionDest": "uac_admin",
+   "value": false
+  },
+  {
+   "optionDest": "uac_uiaccess",
+   "value": false
+  },
+  {
+   "optionDest": "argv_emulation",
+   "value": false
+  },
+  {
+   "optionDest": "bootloader_ignore_signals",
+   "value": false
+  },
+  {
+   "optionDest": "datas",
+   "value": "E:/Pro/Work/downloader/new/codes/gui;gui/"
+  },
+  {
+   "optionDest": "datas",
+   "value": "E:/Pro/Work/downloader/new/codes/threads;threads/"
+  },
+  {
+   "optionDest": "datas",
+   "value": "E:/Pro/Work/downloader/new/codes/windows;windows/"
+  },
+  {
+   "optionDest": "hiddenimports",
+   "value": "requests"
+  },
+  {
+   "optionDest": "hiddenimports",
+   "value": "lib"
+  },
+  {
+   "optionDest": "hiddenimports",
+   "value": "urllib3"
+  },
+  {
+   "optionDest": "hiddenimports",
+   "value": "PyQt5.Qt"
+  },
+  {
+   "optionDest": "hiddenimports",
+   "value": "youtube_transcript_api"
+  },
+  {
+   "optionDest": "hiddenimports",
+   "value": "merging"
+  },
+  {
+   "optionDest": "hiddenimports",
+   "value": "numpy"
+  },
+  {
+   "optionDest": "hiddenimports",
+   "value": "pkg_resources"
+  }
+ ],
+ "nonPyinstallerOptions": {
+  "increaseRecursionLimit": true,
+  "manualArguments": ""
+ }
+}
