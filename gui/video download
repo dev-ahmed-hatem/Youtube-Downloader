@@ -485,6 +485,9 @@ font-size: 17px;
    </layout>
   </widget>
   <widget class="QStatusBar" name="statusbar">
+   <property name="styleSheet">
+    <string notr="true">font-size: 15px;</string>
+   </property>
    <property name="sizeGripEnabled">
     <bool>false</bool>
    </property>

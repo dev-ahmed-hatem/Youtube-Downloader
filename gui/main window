@@ -23,7 +23,7 @@
    </size>
   </property>
   <property name="windowTitle">
-   <string>Youtube Downloader</string>
+   <string>Youtube Video Downloader 2.1</string>
   </property>
   <property name="windowIcon">
    <iconset>
@@ -852,6 +852,9 @@ padding: 0px;</string>
    </layout>
   </widget>
   <widget class="QStatusBar" name="statusbar">
+   <property name="styleSheet">
+    <string notr="true">font-size: 15px;</string>
+   </property>
    <property name="sizeGripEnabled">
     <bool>false</bool>
    </property>

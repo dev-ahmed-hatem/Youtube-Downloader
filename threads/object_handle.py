@@ -330,18 +330,20 @@ class DownloadAnalyzerHandle(QThread):
     def run(self) -> None:
         delay = 0.2
         while self.on_progress:
-            currentSize = getsize(self.filename)
-            rate = (currentSize - self.lastSize) / delay
-            estimatedSize = self.length - currentSize
-            estimatedTime = standard_time(estimatedSize / rate) if rate else "N/A"
-            self.lastSize = currentSize
-            progress = int((currentSize / self.length) * 100)
+            current_size = getsize(self.filename)
+            rate = (current_size - self.lastSize) / delay
+            estimated_size = self.length - current_size
+            estimated_time = standard_time(estimated_size / rate) if rate else "N/A"
+            difference = current_size - self.lastSize
+            self.lastSize = current_size
+            progress = int((current_size / self.length) * 100)
             data = {
                 "rate": rate,
-                "downloaded": currentSize,
-                "estimated_size": estimatedSize,
-                "estimated_time": estimatedTime,
-                "progress": progress
+                "downloaded": current_size,
+                "estimated_size": estimated_size,
+                "estimated_time": estimated_time,
+                "progress": progress,
+                "difference": difference
             }
             # print(data)
             if self.callback:

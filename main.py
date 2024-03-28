@@ -29,6 +29,7 @@ from os import path
 
 # import gui modules
 from PyQt5.QtWidgets import QMainWindow, QMessageBox, QFileDialog, QLabel, QPushButton
+from PyQt5.QtGui import QIcon
 from PyQt5uic import loadUi
 
 # hidden imports
@@ -51,13 +52,15 @@ def show_message_box(text, title, link=None, error=False):
     apply_stylesheet(app, "dark_teal.xml")
 
     msg_box = QMessageBox()
+    msg_box.setWindowIcon(QIcon("./_internal/icon.ico"))
+    msg_box.setStyleSheet(msg_box.styleSheet() + "font-size: 15px;")
     msg_box.setText(text)
     msg_box.setWindowTitle(title)
     msg_box.setIcon(QMessageBox.Critical if error else QMessageBox.Information)
     download_btn = None
     if link:
         download_btn = msg_box.addButton("Download", QMessageBox.AcceptRole)
-    exit_btn = msg_box.addButton("Exit", QMessageBox.RejectRole)
+    msg_box.addButton("Exit", QMessageBox.RejectRole)
     msg_box.exec_()
 
     if msg_box.clickedButton() == download_btn:

@@ -113,7 +113,7 @@ class PlaylistDownloadWindow(QMainWindow):
                                 f"    {stat['estimated_time']}")
         template.progress.setValue(stat["progress"])
         template.progress_label.setText(f"Progress:  {stat['progress']}%")
-        self.downloaded_bytes += stat["downloaded"]
+        self.downloaded_bytes += stat["difference"]
 
         self.rate.setText(naturalsize(stat['rate']))
         self.downloaded.setText(str(naturalsize(self.downloaded_bytes)))
